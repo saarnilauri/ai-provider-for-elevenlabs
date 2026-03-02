@@ -1,0 +1,15 @@
+/.github
+/.gitattributes
+/.gitignore
+/.distignore
+/composer.json
+/composer.lock
+/Makefile
+/phpcs.xml.dist
+/phpstan.neon.dist
+/phpunit.xml.dist
+/phpunit-integration.xml.dist
+/scripts
+/tests
+/vendor
+RELEASE_NOTES_*.md
