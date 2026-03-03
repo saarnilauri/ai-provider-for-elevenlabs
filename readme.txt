@@ -61,6 +61,10 @@ The default output format is MP3 (mp3_44100_128). Other supported formats includ
 
 == Changelog ==
 
+= 0.1.1 =
+* Fix API key registration, if the API key is not set in constant, but in the connectors page in WordPress admin
+* Add a workaround to restore ElevenLabs authentication when the AI client initiation overwrites it with default auth.
+
 = 0.1.0 =
 * Initial release
 * Text-to-speech conversion with ElevenLabs TTS models
