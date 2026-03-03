@@ -97,3 +97,45 @@ function register_provider(): void
 }
 
 add_action('init', __NAMESPACE__ . '\\register_provider', 5);
+
+/**
+ * Re-applies ElevenLabs-specific authentication after AI_Client::init().
+ *
+ * The API_Credentials_Manager (running at init priority 10) overwrites all
+ * provider auth with the generic ApiKeyRequestAuthentication (Authorization: Bearer),
+ * but ElevenLabs requires the xi-api-key header. This hook runs after that to
+ * restore the correct authentication class.
+ *
+ * @since 0.1.1
+ */
+function restore_elevenlabs_authentication(): void
+{
+    if (!class_exists(AiClient::class)) {
+        return;
+    }
+
+    $registry = AiClient::defaultRegistry();
+
+    if (!$registry->hasProvider(ProviderForElevenLabs::class)) {
+        return;
+    }
+
+    $currentAuth = $registry->getProviderRequestAuthentication(ProviderForElevenLabs::class);
+    if ($currentAuth instanceof ElevenLabsApiKeyAuthentication) {
+        return; // Already correct, nothing to do.
+    }
+
+    if ($currentAuth === null) {
+        return; // No auth set at all.
+    }
+
+    // The credentials manager set a generic ApiKeyRequestAuthentication.
+    // Replace it with the ElevenLabs-specific one that uses xi-api-key header.
+    $apiKey = $currentAuth->getApiKey();
+    $registry->setProviderRequestAuthentication(
+        ProviderForElevenLabs::class,
+        new ElevenLabsApiKeyAuthentication($apiKey)
+    );
+}
+
+add_action('init', __NAMESPACE__ . '\\restore_elevenlabs_authentication', 11);
