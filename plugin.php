@@ -6,7 +6,7 @@
  * Description: ElevenLabs provider for the WordPress AI API.
  * Requires at least: 6.9
  * Requires PHP: 7.4
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: Lauri Saarni
  * Author URI: https://profiles.wordpress.org/laurisaarni/
  * License: GPL-2.0-or-later

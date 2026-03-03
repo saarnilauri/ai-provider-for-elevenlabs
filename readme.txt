@@ -3,7 +3,7 @@ Contributors: laurisaarni
 Tags: ai, elevenlabs, text-to-speech, tts, sound-effects
 Requires at least: 6.9
 Tested up to: 6.9
-Stable tag: 0.1.1
+Stable tag: 0.1.2
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,6 +60,9 @@ Set the `outputSpeechVoice` option in your `ModelConfig` to the voice ID. You ca
 The default output format is MP3 (mp3_44100_128). Other supported formats include PCM, ulaw, Opus, and AAC at various sample rates and bitrates.
 
 == Changelog ==
+
+= 0.1.2 =
+* Fix issue if API key not yet set in options table
 
 = 0.1.1 =
 * Fix API key registration, if the API key is not set in constant, but in the connectors page in WordPress admin
