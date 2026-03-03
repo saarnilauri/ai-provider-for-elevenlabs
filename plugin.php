@@ -82,6 +82,12 @@ function register_provider(): void
     if ($apiKey === false && defined('ELEVENLABS_API_KEY')) {
         $apiKey = (string) constant('ELEVENLABS_API_KEY');
     }
+    if ($apiKey === false || $apiKey === '') {
+        $option = get_option('wp_ai_client_provider_credentials');
+        if ($option !== false && $option['elevenlabs'] !== '') {
+            $apiKey = $option['elevenlabs'];
+        }
+    }
     if ($apiKey !== false && $apiKey !== '') {
         $registry->setProviderRequestAuthentication(
             ProviderForElevenLabs::class,
