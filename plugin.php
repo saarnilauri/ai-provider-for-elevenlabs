@@ -84,7 +84,7 @@ function register_provider(): void
     }
     if ($apiKey === false || $apiKey === '') {
         $option = get_option('wp_ai_client_provider_credentials');
-        if ($option !== false && $option['elevenlabs'] !== '') {
+        if ($option !== false && isset($option['elevenlabs']) && $option['elevenlabs'] !== '') {
             $apiKey = $option['elevenlabs'];
         }
     }
