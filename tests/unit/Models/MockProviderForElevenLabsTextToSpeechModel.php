@@ -68,6 +68,16 @@ class MockProviderForElevenLabsTextToSpeechModel extends ProviderForElevenLabsTe
     }
 
     /**
+     * Exposes getVoiceId for testing.
+     *
+     * @return string
+     */
+    public function exposeGetVoiceId(): string
+    {
+        return $this->getVoiceId();
+    }
+
+    /**
      * Exposes resolveMimeTypeFromFormat for testing.
      *
      * @param string $outputFormat

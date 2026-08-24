@@ -48,6 +48,19 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
     ];
 
     /**
+     * Default voice ID used when no outputSpeechVoice is configured.
+     *
+     * This is "George", one of the ElevenLabs premade voices. Premade voice
+     * IDs are shared across all ElevenLabs accounts, so this default is
+     * always available.
+     *
+     * @since 0.3.0
+     *
+     * @var string
+     */
+    public const DEFAULT_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
+
+    /**
      * Default output format when no outputMimeType is configured.
      *
      * @since 0.1.0
@@ -178,20 +191,78 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
     }
 
     /**
-     * Gets the voice ID from the model configuration.
+     * Gets the voice ID from the model configuration, falling back to a default.
+     *
+     * An explicitly configured `outputSpeechVoice` always wins. When none is
+     * set, the default is resolved from (in order): the
+     * `ELEVENLABS_DEFAULT_VOICE_ID` environment variable, the
+     * `ELEVENLABS_DEFAULT_VOICE_ID` constant, the
+     * `ai_provider_for_elevenlabs_default_voice_id` WordPress option, and
+     * finally the hardcoded {@see self::DEFAULT_VOICE_ID}. The resolved
+     * default is then passed through the
+     * `ai_provider_for_elevenlabs_default_voice_id` WordPress filter.
      *
      * @since 0.1.0
+     * @since 0.3.0 Falls back to a default voice instead of throwing an exception.
      *
      * @return string The voice ID.
-     * @throws InvalidArgumentException If no voice ID is configured.
      */
     protected function getVoiceId(): string
     {
         $voiceId = $this->getConfig()->getOutputSpeechVoice();
-        if ($voiceId === null || $voiceId === '') {
-            throw new InvalidArgumentException(
-                'The outputSpeechVoice option is required for ElevenLabs text-to-speech.'
-            );
+        if ($voiceId !== null && trim($voiceId) !== '') {
+            return trim($voiceId);
+        }
+
+        return $this->resolveDefaultVoiceId();
+    }
+
+    /**
+     * Resolves the default voice ID when none is configured.
+     *
+     * @since 0.3.0
+     *
+     * @return string The default voice ID.
+     */
+    protected function resolveDefaultVoiceId(): string
+    {
+        $voiceId = '';
+
+        $envVoiceId = getenv('ELEVENLABS_DEFAULT_VOICE_ID');
+        if (is_string($envVoiceId) && trim($envVoiceId) !== '') {
+            $voiceId = trim($envVoiceId);
+        }
+
+        if ($voiceId === '' && defined('ELEVENLABS_DEFAULT_VOICE_ID')) {
+            $constantVoiceId = constant('ELEVENLABS_DEFAULT_VOICE_ID');
+            if (is_string($constantVoiceId) && trim($constantVoiceId) !== '') {
+                $voiceId = trim($constantVoiceId);
+            }
+        }
+
+        if ($voiceId === '' && function_exists('get_option')) {
+            $optionVoiceId = get_option('ai_provider_for_elevenlabs_default_voice_id', '');
+            if (is_string($optionVoiceId) && trim($optionVoiceId) !== '') {
+                $voiceId = trim($optionVoiceId);
+            }
+        }
+
+        if ($voiceId === '') {
+            $voiceId = self::DEFAULT_VOICE_ID;
+        }
+
+        if (function_exists('apply_filters')) {
+            /**
+             * Filters the default voice ID used when no outputSpeechVoice is configured.
+             *
+             * @since 0.3.0
+             *
+             * @param string $voiceId The resolved default voice ID.
+             */
+            $filteredVoiceId = apply_filters('ai_provider_for_elevenlabs_default_voice_id', $voiceId);
+            if (is_string($filteredVoiceId) && trim($filteredVoiceId) !== '') {
+                $voiceId = trim($filteredVoiceId);
+            }
         }
 
         return $voiceId;

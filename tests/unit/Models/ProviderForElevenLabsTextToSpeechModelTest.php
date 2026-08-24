@@ -346,15 +346,79 @@ class ProviderForElevenLabsTextToSpeechModelTest extends TestCase
     }
 
     /**
-     * Tests that missing voice ID throws InvalidArgumentException.
+     * Tests that a missing voice ID falls back to the default voice.
      */
-    public function testMissingVoiceIdThrowsException(): void
+    public function testMissingVoiceIdFallsBackToDefaultVoice(): void
     {
-        $model = $this->createModel();
+        $capturedRequests = [];
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('outputSpeechVoice');
+        $this->mockRequestAuthentication
+            ->method('authenticateRequest')
+            ->willReturnArgument(0);
+
+        $this->mockHttpTransporter
+            ->method('send')
+            ->willReturnCallback(function ($request) use (&$capturedRequests) {
+                $capturedRequests[] = $request;
+                return new Response(200, [], 'audio-data');
+            });
+
+        $model = $this->createModel();
         $model->convertTextToSpeechResult($this->createPrompt());
+
+        $this->assertCount(1, $capturedRequests);
+        $this->assertStringContainsString(
+            'text-to-speech/' . MockProviderForElevenLabsTextToSpeechModel::DEFAULT_VOICE_ID,
+            $capturedRequests[0]->getUri()
+        );
+    }
+
+    /**
+     * Tests that an empty string voice ID falls back to the default voice.
+     */
+    public function testEmptyStringVoiceIdFallsBackToDefaultVoice(): void
+    {
+        $config = ModelConfig::fromArray(['outputSpeechVoice' => '']);
+        $model = $this->createModel($config);
+
+        $this->assertSame(
+            MockProviderForElevenLabsTextToSpeechModel::DEFAULT_VOICE_ID,
+            $model->exposeGetVoiceId()
+        );
+    }
+
+    /**
+     * Tests that an explicitly configured voice ID always wins over defaults.
+     */
+    public function testExplicitVoiceIdWinsOverDefault(): void
+    {
+        putenv('ELEVENLABS_DEFAULT_VOICE_ID=env-voice-id');
+
+        try {
+            $config = $this->createConfig('ExplicitVoiceId');
+            $model = $this->createModel($config);
+
+            $this->assertSame('ExplicitVoiceId', $model->exposeGetVoiceId());
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_VOICE_ID');
+        }
+    }
+
+    /**
+     * Tests that the ELEVENLABS_DEFAULT_VOICE_ID environment variable overrides
+     * the hardcoded default voice.
+     */
+    public function testEnvVarOverridesDefaultVoice(): void
+    {
+        putenv('ELEVENLABS_DEFAULT_VOICE_ID=env-voice-id');
+
+        try {
+            $model = $this->createModel();
+
+            $this->assertSame('env-voice-id', $model->exposeGetVoiceId());
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_VOICE_ID');
+        }
     }
 
     /**

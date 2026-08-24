@@ -78,6 +78,25 @@ class TextToSpeechIntegrationTest extends TestCase
     }
 
     /**
+     * Tests generating speech without configuring any voice, exercising the
+     * default voice fallback ("George").
+     */
+    public function testTtsGenerationWithoutVoiceUsesDefault(): void
+    {
+        $audio = AiClient::prompt('Testing the default voice fallback.', $this->registry)
+            ->usingProvider('elevenlabs')
+            ->convertTextToSpeech();
+
+        $this->assertTrue($audio->isAudio());
+        $this->assertNotEmpty($audio->getBase64Data());
+
+        $audioData = base64_decode($audio->getBase64Data());
+        $filePath = $this->audioOutputDir . '/tts_default_voice.mp3';
+        file_put_contents($filePath, $audioData);
+        $this->assertGreaterThan(0, filesize($filePath));
+    }
+
+    /**
      * Tests TTS with custom voice settings via the fluent API.
      */
     public function testTtsWithCustomVoiceSettings(): void
