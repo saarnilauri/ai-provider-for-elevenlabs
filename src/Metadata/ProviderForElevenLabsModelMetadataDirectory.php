@@ -6,6 +6,7 @@ namespace AiProviderForElevenLabs\Metadata;
 
 use AiProviderForElevenLabs\Provider\ProviderForElevenLabs;
 use Exception;
+use WordPress\AiClient\Files\Enums\FileTypeEnum;
 use WordPress\AiClient\Messages\Enums\ModalityEnum;
 use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\DTO\Response;
@@ -102,6 +103,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
         $soundGenOptions = [
             new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]),
             new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::audio()]]),
+            new SupportedOption(OptionEnum::outputFileType(), [FileTypeEnum::inline()]),
             new SupportedOption(OptionEnum::customOptions()),
         ];
 
@@ -124,13 +126,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      */
     private function buildFallbackModelsMap(): array
     {
-        $ttsOptions = [
-            new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]),
-            new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::audio()]]),
-            new SupportedOption(OptionEnum::outputSpeechVoice()),
-            new SupportedOption(OptionEnum::outputMimeType()),
-            new SupportedOption(OptionEnum::customOptions()),
-        ];
+        $ttsOptions = $this->getTtsOptions();
 
         $map = [];
         foreach (self::FALLBACK_MODELS as $modelId => $modelName) {
@@ -186,13 +182,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
             throw ResponseException::fromMissingData('ElevenLabs', 'models');
         }
 
-        $ttsOptions = [
-            new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]),
-            new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::audio()]]),
-            new SupportedOption(OptionEnum::outputSpeechVoice()),
-            new SupportedOption(OptionEnum::outputMimeType()),
-            new SupportedOption(OptionEnum::customOptions()),
-        ];
+        $ttsOptions = $this->getTtsOptions();
 
         /** @var list<ModelData> $modelsData */
         $ttsModelsData = array_filter(
@@ -222,6 +212,29 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
         usort($models, [$this, 'modelSortCallback']);
 
         return $models;
+    }
+
+    /**
+     * Returns the supported options shared by all ElevenLabs TTS models.
+     *
+     * The `outputFileType` option must be declared as `inline`, since the model
+     * returns base64-encoded audio and callers (such as the WordPress AI plugin)
+     * require inline output when checking text-to-speech support.
+     *
+     * @since 0.3.0
+     *
+     * @return list<SupportedOption> The supported options.
+     */
+    private function getTtsOptions(): array
+    {
+        return [
+            new SupportedOption(OptionEnum::inputModalities(), [[ModalityEnum::text()]]),
+            new SupportedOption(OptionEnum::outputModalities(), [[ModalityEnum::audio()]]),
+            new SupportedOption(OptionEnum::outputSpeechVoice()),
+            new SupportedOption(OptionEnum::outputMimeType()),
+            new SupportedOption(OptionEnum::outputFileType(), [FileTypeEnum::inline()]),
+            new SupportedOption(OptionEnum::customOptions()),
+        ];
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AiProviderForElevenLabs\Tests\Unit\Metadata;
 
 use PHPUnit\Framework\TestCase;
+use WordPress\AiClient\Files\Enums\FileTypeEnum;
 use WordPress\AiClient\Messages\Enums\ModalityEnum;
 use WordPress\AiClient\Providers\Http\DTO\Response;
 use WordPress\AiClient\Providers\Models\DTO\ModelMetadata;
@@ -111,6 +112,57 @@ class ProviderForElevenLabsModelMetadataDirectoryTest extends TestCase
         $this->assertContains(OptionEnum::outputMimeType()->value, $optionNames);
         $this->assertContains(OptionEnum::customOptions()->value, $optionNames);
         $this->assertContains(OptionEnum::outputModalities()->value, $optionNames);
+        $this->assertContains(OptionEnum::outputFileType()->value, $optionNames);
+
+        $outputFileTypeOption = $this->findOption($models[0], OptionEnum::outputFileType());
+        $this->assertNotNull($outputFileTypeOption);
+        $this->assertTrue($outputFileTypeOption->isSupportedValue(FileTypeEnum::inline()));
+    }
+
+    /**
+     * Tests that the fallback models map declares the same TTS options,
+     * including inline outputFileType, so the two code paths cannot drift.
+     */
+    public function testFallbackModelsHaveCorrectOptions(): void
+    {
+        // No HTTP transporter is set, so the /models request fails and the
+        // hardcoded fallback models map is used.
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $modelsMap = $directory->exposeSendListModelsRequest();
+
+        $this->assertArrayHasKey('eleven_multilingual_v2', $modelsMap);
+
+        $ttsModel = $modelsMap['eleven_multilingual_v2'];
+        $optionNames = array_map(
+            static fn (SupportedOption $option): string => $option->getName()->value,
+            $ttsModel->getSupportedOptions()
+        );
+
+        $this->assertContains(OptionEnum::outputSpeechVoice()->value, $optionNames);
+        $this->assertContains(OptionEnum::outputMimeType()->value, $optionNames);
+        $this->assertContains(OptionEnum::outputFileType()->value, $optionNames);
+
+        $outputFileTypeOption = $this->findOption($ttsModel, OptionEnum::outputFileType());
+        $this->assertNotNull($outputFileTypeOption);
+        $this->assertTrue($outputFileTypeOption->isSupportedValue(FileTypeEnum::inline()));
+    }
+
+    /**
+     * Tests that the synthetic sound generation model declares inline outputFileType.
+     */
+    public function testSoundGenerationModelDeclaresInlineOutputFileType(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $modelsMap = $directory->exposeSendListModelsRequest();
+
+        $this->assertArrayHasKey('elevenlabs-sound-generation', $modelsMap);
+
+        $outputFileTypeOption = $this->findOption(
+            $modelsMap['elevenlabs-sound-generation'],
+            OptionEnum::outputFileType()
+        );
+        $this->assertNotNull($outputFileTypeOption);
+        $this->assertTrue($outputFileTypeOption->isSupportedValue(FileTypeEnum::inline()));
     }
 
     /**

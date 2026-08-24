@@ -23,4 +23,18 @@ class MockProviderForElevenLabsModelMetadataDirectory extends ProviderForElevenL
     {
         return $this->parseResponseToModelMetadataList($response);
     }
+
+    /**
+     * Exposes sendListModelsRequest for testing.
+     *
+     * When no HTTP transporter is set, the parent request fails and the
+     * hardcoded fallback models map is returned, so this can be used to test
+     * the fallback path without any HTTP mocking.
+     *
+     * @return array<string, ModelMetadata>
+     */
+    public function exposeSendListModelsRequest(): array
+    {
+        return $this->sendListModelsRequest();
+    }
 }
