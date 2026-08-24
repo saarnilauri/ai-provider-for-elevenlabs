@@ -89,12 +89,34 @@ use WordPress\AiClient\Providers\Models\DTO\ModelConfig;
 $audio = AiClient::prompt( 'Hello, this is a test of ElevenLabs text to speech.' )
     ->usingProvider( 'elevenlabs' )
     ->usingModelConfig( ModelConfig::fromArray( [
-        'outputSpeechVoice' => 'JBFqnCBsd6RMkjVDRZzb', // Voice ID (required)
+        'outputSpeechVoice' => 'JBFqnCBsd6RMkjVDRZzb', // Voice ID (optional, defaults to "George")
     ] ) )
     ->convertTextToSpeech();
 
 // Save the audio file.
 file_put_contents( 'output.mp3', base64_decode( $audio->toAudioFile()->getBase64Data() ) );
+```
+
+### Default Voice
+
+When no `outputSpeechVoice` is configured, the provider falls back to the ElevenLabs premade voice **"George"** (`JBFqnCBsd6RMkjVDRZzb`). Premade voice IDs are shared across all ElevenLabs accounts, so this default always works. This means TTS integrations that don't surface a voice setting (such as the WordPress AI plugin's Text to Speech experiment) work out of the box.
+
+An explicitly configured `outputSpeechVoice` always wins. When none is set, the default is resolved in this order:
+
+1. `ELEVENLABS_DEFAULT_VOICE_ID` environment variable
+2. `ELEVENLABS_DEFAULT_VOICE_ID` PHP constant
+3. `ai_provider_for_elevenlabs_default_voice_id` WordPress option (e.g. `wp option update ai_provider_for_elevenlabs_default_voice_id <voice-id>`)
+4. The hardcoded "George" voice
+
+The resolved default is then passed through the `ai_provider_for_elevenlabs_default_voice_id` filter:
+
+```php
+add_filter(
+    'ai_provider_for_elevenlabs_default_voice_id',
+    function ( string $voice_id ): string {
+        return '21m00Tcm4TlvDq8ikWAM'; // "Rachel"
+    }
+);
 ```
 
 ### Text-to-Speech with Custom Voice Settings

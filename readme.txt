@@ -1,9 +1,9 @@
 === AI Provider for ElevenLabs ===
 Contributors: laurisaarni
-Tags: ai, elevenlabs, text-to-speech, tts, sound-effects
+Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.0
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -55,11 +55,19 @@ No, this plugin requires the PHP AI Client plugin to be installed and activated.
 
 Set the `outputSpeechVoice` option in your `ModelConfig` to the voice ID. You can discover available voices using the `VoiceDirectory` class or the ElevenLabs voice library.
 
+= What happens if I don't specify a voice? =
+
+The provider falls back to the ElevenLabs premade voice "George" (`JBFqnCBsd6RMkjVDRZzb`), which is available on every account. You can change the default via the `ELEVENLABS_DEFAULT_VOICE_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_voice_id` option, or the `ai_provider_for_elevenlabs_default_voice_id` filter. An explicitly configured `outputSpeechVoice` always takes precedence.
+
 = What audio formats are supported? =
 
 The default output format is MP3 (mp3_44100_128). Other supported formats include PCM, ulaw, Opus, and AAC at various sample rates and bitrates.
 
 == Changelog ==
+
+= 0.3.0 =
+* Declare inline `outputFileType` support for text-to-speech and sound generation models, so support checks like `isSupportedForTextToSpeechConversion()` pass when callers request inline output (fixes compatibility with the WordPress AI plugin's Text to Speech experiment)
+* Fall back to the premade "George" voice when no `outputSpeechVoice` is configured, instead of throwing an exception; the default can be overridden via the `ELEVENLABS_DEFAULT_VOICE_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_voice_id` option, or the `ai_provider_for_elevenlabs_default_voice_id` filter
 
 = 0.2.0 =
 * WordPress 7.0 compatibility: read the API key from the core Connectors option (`connectors_ai_elevenlabs_api_key`, Settings > Connectors)
