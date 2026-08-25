@@ -3,7 +3,7 @@ Contributors: laurisaarni
 Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.0
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -18,8 +18,10 @@ It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
 **Features:**
 
 * Text-to-speech conversion with high-quality ElevenLabs voices
+* Automatic voice selection -- a prompt works without configuring a voice ID first
+* Long-form narration -- text beyond the model's per-request limit is narrated across several requests and returned as one audio file
 * Sound effects generation from text descriptions
-* Voice directory for discovering available voices (including cloned voices)
+* Voice directory for discovering available voices (including cloned voices), cached per API key
 * Dynamic model discovery from the ElevenLabs API
 * Automatic provider registration
 
@@ -31,15 +33,15 @@ It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
 **Requirements:**
 
 * PHP 7.4 or higher
-* PHP AI Client plugin must be installed and activated
+* The PHP AI Client SDK must be loadable. WordPress 7.0 and later bundle it in core; earlier WordPress needs it provided via Composer (it is an SDK, not a plugin)
 * ElevenLabs API key
 
 == Installation ==
 
-1. Ensure the PHP AI Client plugin is installed and activated
+1. Ensure the PHP AI Client SDK is available (bundled in WordPress 7.0+)
 2. Upload the plugin files to `/wp-content/plugins/ai-provider-for-elevenlabs/`
 3. Activate the plugin through the 'Plugins' menu in WordPress
-4. Configure your ElevenLabs API key via the `ELEVENLABS_API_KEY` environment variable or constant
+4. Configure your ElevenLabs API key in Settings > Connectors (WordPress 7.0+), or via the `ELEVENLABS_API_KEY` environment variable or constant
 
 == Frequently Asked Questions ==
 
@@ -57,13 +59,32 @@ Set the `outputSpeechVoice` option in your `ModelConfig` to the voice ID. You ca
 
 = What happens if I don't specify a voice? =
 
-The provider falls back to the ElevenLabs premade voice "George" (`JBFqnCBsd6RMkjVDRZzb`), which is available on every account. You can change the default via the `ELEVENLABS_DEFAULT_VOICE_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_voice_id` option, or the `ai_provider_for_elevenlabs_default_voice_id` filter. An explicitly configured `outputSpeechVoice` always takes precedence.
+The provider resolves a default: the `ELEVENLABS_DEFAULT_VOICE_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_voice_id` option, a voice discovered from your own ElevenLabs account (preferring premade voices; requires the Voices permission on the API key), and finally the premade voice "George" (`JBFqnCBsd6RMkjVDRZzb`), which is available on every account. The result passes through the `ai_provider_for_elevenlabs_default_voice_id` filter. An explicitly configured `outputSpeechVoice` always takes precedence.
+
+= Can it narrate a whole post? =
+
+Text longer than the model's per-request character limit is split on paragraph and sentence boundaries, narrated in several requests, and returned as one audio file. Note that narration is slow (roughly 90 to 95 characters per second) and runs inside one PHP request, so very long text can exceed the PHP execution time limit. Each chunk is billed as its own API request. See the README for details and for the public per-chunk methods a background-processing plugin can build on.
+
+= Why does the AI plugin say there is no valid AI Connector? =
+
+The WordPress.org AI plugin treats a connector as valid only when it can generate text, and ElevenLabs generates speech and sound. The warning is expected and does not affect this provider; add a text-generation connector alongside it to satisfy the AI plugin's own features.
 
 = What audio formats are supported? =
 
-The default output format is MP3 (mp3_44100_128). Other supported formats include PCM, ulaw, Opus, and AAC at various sample rates and bitrates.
+The default output format is MP3 (mp3_44100_128). Other supported formats include PCM, ulaw, Opus, and AAC at various sample rates and bitrates. When long text has to be split across requests, only formats whose audio can be joined are allowed (MP3, PCM, ulaw, alaw).
 
 == Changelog ==
+
+= 0.4.0 =
+* Long-form narration: text beyond the model's per-request character limit is split on paragraph and sentence boundaries, narrated across several requests carrying neighbouring text for prosody, and returned as one audio file (contributed by Jake Spurlock)
+* Automatic voice selection: when no `outputSpeechVoice` and no explicit default are configured, a voice is discovered from the account's own voices, preferring premade ones, before falling back to "George" (contributed by Jake Spurlock)
+* Voice directory: migrate from the deprecated `/v1/voices` endpoint to `/v2/voices` with full pagination, and cache the voice list per API key for 15 minutes (contributed by Jake Spurlock)
+* Honour all `customOptions` in both the text-to-speech and sound generation models (e.g. `language_code`, `seed`, `speed`, `apply_text_normalization`); previously most keys were silently dropped (contributed by Jake Spurlock)
+* Read each model's real per-request character limit from the live `/models` response, seeded from measured values, and add `eleven_v3` to the fallback model list (contributed by Jake Spurlock)
+* Fix the voice directory staying unusable for the rest of the request when built before credentials were available (contributed by Jake Spurlock)
+* Show the provider in the connector UI as "ElevenLabs" with a description and the official logo (contributed by Jake Spurlock)
+* Exclude local credentials (`.env`, `.wp-env.override.json`) and dev artifacts from the release ZIP, verified by a CI canary check (contributed by Jake Spurlock)
+* Add continuous integration (unit tests on PHP 7.4-8.4, phpcs, PHPStan, packaging leak check), a local `wp-env` environment, the GPL-2.0 license text, and fix test-suite autoloading on case-sensitive filesystems
 
 = 0.3.0 =
 * Declare inline `outputFileType` support for text-to-speech and sound generation models, so support checks like `isSupportedForTextToSpeechConversion()` pass when callers request inline output (fixes compatibility with the WordPress AI plugin's Text to Speech experiment)

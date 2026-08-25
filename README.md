@@ -3,19 +3,31 @@
 A third-party provider for [ElevenLabs](https://elevenlabs.io/) in the [PHP AI Client](https://github.com/WordPress/php-ai-client) SDK. Works as both a Composer package and a WordPress plugin.
 
 This project is independent and is not affiliated with, endorsed by, or sponsored by ElevenLabs.
+`assets/images/elevenlabs.svg` is the official ElevenLabs symbol from their
+[brand kit](https://elevenlabs.io/brand), used unmodified to identify the provider.
+The ElevenLabs name and logo are trademarks of ElevenLabs.
 
 ## Features
 
 - **Text-to-Speech** -- high-quality voice synthesis with many voices and models
+- **Automatic voice selection** -- a prompt works without configuring a voice ID first
+- **Long-form narration** -- text beyond the model's per-request limit is narrated across
+  several requests and returned as one audio file ([caveats](#long-form-narration))
 - **Sound Effects Generation** -- generate sound effects from text prompts
-- **Voice Directory** -- list and discover available voices (including cloned voices)
+- **Voice Directory** -- list and discover available voices, including cloned voices, cached per API key
 - Automatic provider registration in WordPress
 - Dynamic model discovery from the ElevenLabs API
 
 ## Requirements
 
-- PHP 7.4 or higher
-- [wordpress/php-ai-client](https://github.com/WordPress/php-ai-client) ^1.1 must be installed
+- PHP 7.4 or higher, with the `mbstring` extension (used when splitting long text for narration; present on virtually every WordPress host)
+- The [PHP AI Client](https://github.com/WordPress/php-ai-client) SDK, ^1.2, must be loadable:
+    - **WordPress 7.0 and later** bundle it in core (`wp-includes/php-ai-client/`). Nothing to install.
+    - **Earlier WordPress** does not. The SDK is a Composer package, not a plugin -- there is
+      nothing to install from the plugin directory -- so it has to be provided by something
+      else on the site that requires `wordpress/php-ai-client`.
+
+If the SDK is not available, this plugin registers nothing and stays inert.
 
 ## Installation
 
@@ -53,9 +65,9 @@ ElevenLabs API keys can be scoped with specific permissions. The minimum permiss
 | Text-to-speech | Text-to-speech generation | Required for TTS functionality |
 | Sound generation | Sound effects generation | Required for sound effects |
 | Models | Dynamic model discovery | Optional -- the plugin falls back to a hardcoded model list when this permission is missing |
-| Voices | Listing available voices | Only needed if you use the `VoiceDirectory` to browse voices |
+| Voices | Listing available voices | Needed to browse voices via `VoiceDirectory`, and to pick a voice from your account automatically when `outputSpeechVoice` is not set |
 
-For full functionality, grant **Text-to-speech**, **Sound generation**, **Models**, and **Voices** permissions. For a minimal TTS-only setup, **Text-to-speech** alone is sufficient.
+For full functionality, grant **Text-to-speech**, **Sound generation**, **Models**, and **Voices** permissions. For a minimal TTS-only setup, **Text-to-speech** alone is sufficient: without the **Voices** permission the provider cannot discover a voice from your account, and a prompt that omits `outputSpeechVoice` uses the premade "George" voice instead.
 
 You can manage API key permissions at [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys).
 
@@ -99,14 +111,15 @@ file_put_contents( 'output.mp3', base64_decode( $audio->toAudioFile()->getBase64
 
 ### Default Voice
 
-When no `outputSpeechVoice` is configured, the provider falls back to the ElevenLabs premade voice **"George"** (`JBFqnCBsd6RMkjVDRZzb`). Premade voice IDs are shared across all ElevenLabs accounts, so this default always works. This means TTS integrations that don't surface a voice setting (such as the WordPress AI plugin's Text to Speech experiment) work out of the box.
+When no `outputSpeechVoice` is configured, the provider still works: it resolves a default voice rather than failing. This means TTS integrations that don't surface a voice setting (such as the WordPress AI plugin's Text to Speech experiment) work out of the box.
 
 An explicitly configured `outputSpeechVoice` always wins. When none is set, the default is resolved in this order:
 
 1. `ELEVENLABS_DEFAULT_VOICE_ID` environment variable
 2. `ELEVENLABS_DEFAULT_VOICE_ID` PHP constant
 3. `ai_provider_for_elevenlabs_default_voice_id` WordPress option (e.g. `wp option update ai_provider_for_elevenlabs_default_voice_id <voice-id>`)
-4. The hardcoded "George" voice
+4. A voice from your ElevenLabs account, preferring a premade one. The voice list is cached per API key, so this costs one extra API call at most. Requires the **Voices** permission on the key.
+5. The hardcoded premade voice **"George"** (`JBFqnCBsd6RMkjVDRZzb`). Premade voice IDs are shared across all ElevenLabs accounts, so this final fallback always works.
 
 The resolved default is then passed through the `ai_provider_for_elevenlabs_default_voice_id` filter:
 
@@ -118,6 +131,74 @@ add_filter(
     }
 );
 ```
+
+### Long-form narration
+
+ElevenLabs caps the characters accepted in one request, and the cap depends on the
+model:
+
+| Model | Characters per request |
+|---|---|
+| `eleven_v3` | 5,000 |
+| `eleven_multilingual_v2` (default) | 10,000 |
+| `eleven_turbo_v2`, `eleven_flash_v2` | 30,000 |
+| `eleven_turbo_v2_5`, `eleven_flash_v2_5` | 40,000 |
+
+Longer text is split on paragraph and sentence boundaries, narrated in several
+requests that carry their neighbouring text so prosody survives the seams, and
+returned as a single audio file. Nothing changes for text that already fits: it
+still makes exactly one request.
+
+Two constraints are worth knowing before relying on this.
+
+**It is slow, and can exceed your PHP time limit.** A long text means several
+sequential API calls inside one request. Synthesis runs at roughly **90 to 95
+characters per second**, so against a PHP default `max_execution_time` of 30
+seconds the ceiling for a synchronous call is roughly 2,500 characters, or about
+400 words. Raising `max_execution_time` (and memory, since the audio is held in
+memory before being returned) works on hosts where you control both.
+
+This package deliberately stays a synchronous provider adapter and ships no
+background-job system. The per-chunk seams are public --
+`narrateChunk()`, `splitTextForRequests()`, `getVoiceId()`,
+`resolveOutputFormat()`, and `resolveMimeTypeFromFormat()` on the
+text-to-speech model -- precisely so that a separate plugin can queue narration
+chunk by chunk (WP-Cron, Action Scheduler, a system queue) without this package
+depending on any of them.
+
+**It costs one request per chunk.** A long text is charged accordingly.
+
+Chunking also requires an output format whose audio can be joined. MP3 and the raw
+PCM and µ-law formats can be; Opus is carried in an Ogg container and cannot, and
+AAC is excluded until confirmed to be ADTS-framed. Requesting an unjoinable format
+for over-long text fails immediately, before any request is billed, rather than
+returning audio that is subtly broken. Short text is unaffected in every format.
+
+### Provider-specific options
+
+The provider supports `customOptions`, which pass through to the ElevenLabs API.
+This covers parameters the AI Client has no dedicated option for:
+
+```php
+$audio = AiClient::prompt( 'Bonjour tout le monde.' )
+    ->usingProvider( 'elevenlabs' )
+    ->usingModelConfig( ModelConfig::fromArray( [
+        'customOptions' => [
+            'language_code'            => 'fr',   // force a language
+            'speed'                    => 1.1,    // a voice setting
+            'seed'                     => 42,     // deterministic output
+            'apply_text_normalization' => 'on',
+        ],
+    ] ) )
+    ->convertTextToSpeech();
+```
+
+Voice settings (`stability`, `similarity_boost`, `style`, `use_speaker_boost`,
+`speed`) are nested under `voice_settings` automatically; everything else is sent
+at the top level. An option that collides with a parameter the provider sets --
+`text`, `model_id`, `voice_settings` -- is rejected rather than silently
+overriding it. `previous_text` and `next_text` are reserved, because the provider
+sets them when narrating long text.
 
 ### Text-to-Speech with Custom Voice Settings
 
@@ -156,7 +237,8 @@ file_put_contents( 'thunder.mp3', base64_decode( $audio->toAudioFile()->getBase6
 
 ### Listing Available Voices
 
-The plugin provides a `VoiceDirectory` for discovering available voices from the ElevenLabs `/voices` endpoint.
+The plugin provides a `VoiceDirectory` for discovering available voices from the ElevenLabs
+`/v2/voices` endpoint. Every page of results is fetched, and the list is cached per API key.
 
 ```php
 use WordPress\AiClient\AiClient;
@@ -189,6 +271,7 @@ Models are dynamically discovered from the ElevenLabs `/models` API endpoint. Co
 
 | Model ID | Name | Use Case |
 |---|---|---|
+| `eleven_v3` | v3 | Most expressive TTS |
 | `eleven_multilingual_v2` | Multilingual v2 | Best quality multilingual TTS |
 | `eleven_turbo_v2_5` | Turbo v2.5 | Low-latency TTS |
 | `eleven_turbo_v2` | Turbo v2 | Low-latency TTS (English) |
@@ -254,18 +337,73 @@ composer test
 composer test:unit
 ```
 
-Run integration tests (requires `ELEVENLABS_API_KEY`):
-
-```bash
-composer test:integration
-```
-
 Run linting:
 
 ```bash
 composer lint
 ```
 
+### Integration tests against the live API
+
+The integration suite makes real calls to ElevenLabs and needs an API key. It does
+not need WordPress. Copy the template and fill in your key:
+
+```bash
+cp .env.example .env
+# then edit .env and set ELEVENLABS_API_KEY
+composer test:integration
+```
+
+Individual tests skip themselves when the key is absent, so the suite is safe to
+run without one. `.env` is both gitignored and excluded from the release ZIP.
+
+Generated audio is written to `tests/Integration/audio/` for listening.
+
+### Local WordPress environment
+
+Some behaviour only exists inside WordPress -- provider registration on `init`,
+the Settings > Connectors credential flow, and transient-backed voice caching --
+and no amount of PHPUnit will exercise it. Use [`wp-env`](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/)
+(requires Docker):
+
+```bash
+npx @wordpress/env start
+```
+
+This boots current WordPress with the plugin mounted and activated, at
+<http://localhost:8890> (admin/password). To provide an API key locally, copy
+`.wp-env.override.json.example` to `.wp-env.override.json` and fill it in; the
+override file is gitignored and excluded from the release ZIP.
+
+Two AI dependencies are involved, and they arrive differently:
+
+- **The PHP AI Client SDK** is what this provider plugs into. It is a Composer
+  package with no `Plugin Name:` header, so it cannot be installed as a plugin;
+  it ships inside core at `wp-includes/php-ai-client/`. That is why `"core"` is
+  the dependency here rather than anything in `"plugins"`.
+- **The [AI plugin](https://wordpress.org/plugins/ai)** is the WordPress.org
+  reference implementation built on top of that SDK -- Connectors approvals, an
+  abilities explorer, AI request logging, and editor features. It *is* a real
+  plugin, and `.wp-env.json` installs it, because it is the thing that actually
+  exercises a registered provider end to end.
+
+With only ElevenLabs configured, the AI plugin warns that it needs a valid AI
+Connector. That is expected, not a fault in this provider: the AI plugin treats
+a connector as valid only when it can generate text, and ElevenLabs generates
+speech. Add a text-generation connector alongside it to exercise the AI plugin's
+own features.
+
+## Credits
+
+Created and maintained by [Lauri Saarni](https://profiles.wordpress.org/laurisaarni/).
+
+Several 0.4.0 improvements were contributed by [Jake Spurlock](https://profiles.wordpress.org/whyisjake/)
+in his fork, [whyisjake/ai-provider-for-elevenlabs](https://github.com/whyisjake/ai-provider-for-elevenlabs):
+long-form narration and text chunking, the `/v2/voices` migration with pagination and
+per-key caching, automatic voice selection from the account, custom option
+passthrough, the connector metadata and logo treatment, the CI and packaging
+leak checks, and the local `wp-env` environment.
+
 ## License
 
-GPL-2.0-or-later
+GPL-2.0-or-later. See [LICENSE](LICENSE).

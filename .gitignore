@@ -12,3 +12,6 @@
 .DS_Store
 
 
+
+# Holds a live ELEVENLABS_API_KEY. The .example file is the committed template.
+.wp-env.override.json

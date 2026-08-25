@@ -23,6 +23,10 @@ use WordPress\AiClient\Providers\Models\DTO\ModelMetadata;
 /**
  * Class for the WordPress AI Client provider for ElevenLabs.
  *
+ * The connector metadata (name, description, logo) and the voice directory
+ * dependency-retry logic were contributed by Jake Spurlock
+ * (https://github.com/whyisjake/ai-provider-for-elevenlabs).
+ *
  * @since 0.1.0
  */
 class ProviderForElevenLabs extends AbstractApiProvider
@@ -31,6 +35,11 @@ class ProviderForElevenLabs extends AbstractApiProvider
      * @var VoiceDirectory|null Lazy-initialized voice directory instance.
      */
     private static ?VoiceDirectory $voiceDirectory = null;
+
+    /**
+     * @var bool Whether the voice directory has its transporter and authentication attached.
+     */
+    private static bool $voiceDirectoryReady = false;
 
     /**
      * {@inheritDoc}
@@ -76,13 +85,41 @@ class ProviderForElevenLabs extends AbstractApiProvider
      */
     protected static function createProviderMetadata(): ProviderMetadata
     {
+        // This is the provider's label in the connector UI, so it names the
+        // service rather than the plugin. The function_exists() guard keeps the
+        // class usable as a plain Composer package outside WordPress, and the
+        // literal is repeated so that i18n tooling can extract the string.
+        $description = 'Text-to-speech and sound effects with ElevenLabs.';
+        if (function_exists('__')) {
+            $translated = __('Text-to-speech and sound effects with ElevenLabs.', 'ai-provider-for-elevenlabs');
+            if (is_string($translated)) {
+                $description = $translated;
+            }
+        }
+
         return new ProviderMetadata(
             'elevenlabs',
-            'AI Provider for ElevenLabs',
+            'ElevenLabs',
             ProviderTypeEnum::cloud(),
             'https://elevenlabs.io/app/settings/api-keys',
-            RequestAuthenticationMethod::apiKey()
+            RequestAuthenticationMethod::apiKey(),
+            $description,
+            self::logoPath()
         );
+    }
+
+    /**
+     * Resolves the provider logo path, when the asset is present.
+     *
+     * @since 0.4.0
+     *
+     * @return string|null The absolute path to the logo, or null if it is not bundled.
+     */
+    private static function logoPath(): ?string
+    {
+        $logoPath = dirname(__DIR__, 2) . '/assets/images/elevenlabs.svg';
+
+        return file_exists($logoPath) ? $logoPath : null;
     }
 
     /**
@@ -108,10 +145,16 @@ class ProviderForElevenLabs extends AbstractApiProvider
     /**
      * Gets the voice directory instance.
      *
-     * The voice directory provides access to the ElevenLabs /voices endpoint
-     * for listing and discovering available voices. The instance is
-     * lazy-initialized and shares the HTTP transporter and authentication
-     * with the model metadata directory.
+     * The voice directory provides access to the ElevenLabs voices endpoint for
+     * listing and discovering available voices. The instance is lazy-initialized
+     * and shares the HTTP transporter and authentication with the model metadata
+     * directory.
+     *
+     * The transporter and authentication are re-applied on every call until both
+     * are actually attached. They are frequently unavailable the first time this
+     * runs, and an instance built without them can never recover on its own --
+     * {@see VoiceDirectory::getVoices()} would throw for the rest of the request
+     * even after credentials became available.
      *
      * @since 0.1.0
      *
@@ -120,28 +163,48 @@ class ProviderForElevenLabs extends AbstractApiProvider
     public static function getVoiceDirectory(): VoiceDirectory
     {
         if (self::$voiceDirectory === null) {
-            $modelMetadataDirectory = static::modelMetadataDirectory();
-
             self::$voiceDirectory = new VoiceDirectory();
+        }
 
-            if ($modelMetadataDirectory instanceof WithHttpTransporterInterface) {
-                try {
-                    self::$voiceDirectory->setHttpTransporter($modelMetadataDirectory->getHttpTransporter());
-                } catch (RuntimeException $e) {
-                    // HTTP transporter not yet set, will be set later.
-                }
-            }
-
-            if ($modelMetadataDirectory instanceof WithRequestAuthenticationInterface) {
-                try {
-                    $auth = $modelMetadataDirectory->getRequestAuthentication();
-                    self::$voiceDirectory->setRequestAuthentication($auth);
-                } catch (RuntimeException $e) {
-                    // Request authentication not yet set, will be set later.
-                }
-            }
+        if (!self::$voiceDirectoryReady) {
+            self::$voiceDirectoryReady = self::attachDependencies(self::$voiceDirectory);
         }
 
         return self::$voiceDirectory;
+    }
+
+    /**
+     * Attaches the shared HTTP transporter and authentication to the voice directory.
+     *
+     * @since 0.4.0
+     *
+     * @param VoiceDirectory $voiceDirectory The voice directory to configure.
+     * @return bool True once both dependencies are attached, false otherwise.
+     */
+    private static function attachDependencies(VoiceDirectory $voiceDirectory): bool
+    {
+        $modelMetadataDirectory = static::modelMetadataDirectory();
+
+        $hasTransporter = false;
+        if ($modelMetadataDirectory instanceof WithHttpTransporterInterface) {
+            try {
+                $voiceDirectory->setHttpTransporter($modelMetadataDirectory->getHttpTransporter());
+                $hasTransporter = true;
+            } catch (RuntimeException $e) {
+                // Not available yet; retried on the next call.
+            }
+        }
+
+        $hasAuthentication = false;
+        if ($modelMetadataDirectory instanceof WithRequestAuthenticationInterface) {
+            try {
+                $voiceDirectory->setRequestAuthentication($modelMetadataDirectory->getRequestAuthentication());
+                $hasAuthentication = true;
+            } catch (RuntimeException $e) {
+                // Not available yet; retried on the next call.
+            }
+        }
+
+        return $hasTransporter && $hasAuthentication;
     }
 }

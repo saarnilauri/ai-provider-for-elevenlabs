@@ -6,7 +6,7 @@
  * Description: ElevenLabs provider for the WordPress AI API.
  * Requires at least: 6.9
  * Requires PHP: 7.4
- * Version: 0.3.0
+ * Version: 0.4.0
  * Author: Lauri Saarni
  * Author URI: https://profiles.wordpress.org/laurisaarni/
  * License: GPL-2.0-or-later
@@ -34,7 +34,7 @@ if (!defined('ABSPATH')) {
  * Since this plugin may be installed without Composer, classes
  * are loaded manually instead of relying on an autoloader.
  *
- * Load order: Metadata → Voices → Models → Provider
+ * Load order: Metadata → Text → Voices → Models → Provider
  *
  * @since 0.1.0
  *
@@ -45,6 +45,9 @@ function load_classes(): void
     $plugin_dir = __DIR__ . '/src';
 
     require_once $plugin_dir . '/Metadata/ProviderForElevenLabsModelMetadataDirectory.php';
+    // TextChunker must load before the models: the text-to-speech model
+    // references it when splitting long text across requests.
+    require_once $plugin_dir . '/Text/TextChunker.php';
     require_once $plugin_dir . '/Voices/VoiceDirectory.php';
     require_once $plugin_dir . '/Models/ProviderForElevenLabsTextToSpeechModel.php';
     require_once $plugin_dir . '/Models/ProviderForElevenLabsSoundGenerationModel.php';

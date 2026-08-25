@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AiProviderForElevenLabs\Tests\Integration\ElevenLabs;
 
+use AiProviderForElevenLabs\Provider\ElevenLabsApiKeyAuthentication;
+use AiProviderForElevenLabs\Provider\ProviderForElevenLabs;
 use AiProviderForElevenLabs\Tests\Integration\Traits\IntegrationTestTrait;
 use PHPUnit\Framework\TestCase;
 use WordPress\AiClient\AiClient;
@@ -78,25 +80,6 @@ class TextToSpeechIntegrationTest extends TestCase
     }
 
     /**
-     * Tests generating speech without configuring any voice, exercising the
-     * default voice fallback ("George").
-     */
-    public function testTtsGenerationWithoutVoiceUsesDefault(): void
-    {
-        $audio = AiClient::prompt('Testing the default voice fallback.', $this->registry)
-            ->usingProvider('elevenlabs')
-            ->convertTextToSpeech();
-
-        $this->assertTrue($audio->isAudio());
-        $this->assertNotEmpty($audio->getBase64Data());
-
-        $audioData = base64_decode($audio->getBase64Data());
-        $filePath = $this->audioOutputDir . '/tts_default_voice.mp3';
-        file_put_contents($filePath, $audioData);
-        $this->assertGreaterThan(0, filesize($filePath));
-    }
-
-    /**
      * Tests TTS with custom voice settings via the fluent API.
      */
     public function testTtsWithCustomVoiceSettings(): void
@@ -142,6 +125,120 @@ class TextToSpeechIntegrationTest extends TestCase
         $filePath = $this->audioOutputDir . '/tts_low_quality.mp3';
         file_put_contents($filePath, $audioData);
         $this->assertGreaterThan(0, filesize($filePath));
+    }
+
+    /**
+     * Tests that a prompt with no configured voice still produces audio.
+     *
+     * This is the path a caller hits when they simply select the provider and
+     * prompt it. ElevenLabs requires a voice ID in the request path, so the
+     * provider resolves one from the account. Every other test in this file
+     * pins a voice explicitly, so this is the only live coverage of that
+     * resolution -- and the only one that proves the account lookup works
+     * against the real API rather than a mocked voice list.
+     *
+     * Requires the API key to carry the Voices permission.
+     */
+    public function testTtsWithoutConfiguredVoiceUsesAccountDefault(): void
+    {
+        $audio = AiClient::prompt('No voice was configured for this request.', $this->registry)
+            ->usingProvider('elevenlabs')
+            ->convertTextToSpeech();
+
+        $this->assertTrue($audio->isAudio());
+        $this->assertNotEmpty($audio->getBase64Data());
+
+        $audioData = base64_decode($audio->getBase64Data());
+        $this->assertNotEmpty($audioData);
+
+        $filePath = $this->audioOutputDir . '/tts_default_voice.mp3';
+        file_put_contents($filePath, $audioData);
+        $this->assertFileExists($filePath);
+        $this->assertGreaterThan(0, filesize($filePath));
+    }
+
+    /**
+     * Tests that the voice directory reports a default voice for the account.
+     *
+     * Complements the test above: that one proves audio comes back, this one
+     * names the voice that was chosen so a failure distinguishes "no voice
+     * could be resolved" from "synthesis failed".
+     */
+    public function testAccountExposesADefaultVoice(): void
+    {
+        $voiceDirectory = ProviderForElevenLabs::getVoiceDirectory();
+        $voiceDirectory->setRequestAuthentication(
+            new ElevenLabsApiKeyAuthentication((string) ($_ENV['ELEVENLABS_API_KEY'] ?? getenv('ELEVENLABS_API_KEY')))
+        );
+
+        $voices = $voiceDirectory->getVoices();
+        $this->assertNotEmpty($voices, 'The account reported no voices at all.');
+
+        $defaultVoiceId = $voiceDirectory->getDefaultVoiceId();
+        $this->assertNotNull($defaultVoiceId);
+        $this->assertArrayHasKey($defaultVoiceId, $voices);
+
+        fwrite(
+            STDERR,
+            sprintf(
+                "\nResolved default voice: %s (%s), from %d voice(s).\n",
+                $voices[$defaultVoiceId]['name'],
+                $defaultVoiceId,
+                count($voices)
+            )
+        );
+    }
+
+    /**
+     * Narrates text long enough to require several requests.
+     *
+     * The default model accepts 10,000 characters per request, so this exceeds
+     * it deliberately. Beyond asserting that the audio comes back joined, this
+     * records wall-clock time: chunked narration runs several sequential API
+     * calls inside one synchronous request, and if a realistic post cannot
+     * finish inside a normal PHP execution limit then this belongs in a
+     * background job rather than a page request. The number is printed rather
+     * than asserted, because a threshold here would be arbitrary and flaky.
+     */
+    public function testLongTextIsNarratedAcrossRequests(): void
+    {
+        $paragraph = 'WordPress powers a large share of the web, and the arrival of a shared AI '
+            . 'client in core changes how plugins integrate with model providers. Rather than each '
+            . 'plugin shipping its own HTTP layer and credential handling, a provider registers '
+            . 'itself once and every consumer benefits. ';
+
+        // Comfortably past the 10,000 character limit of eleven_multilingual_v2.
+        $text = trim(str_repeat($paragraph, 60));
+        $this->assertGreaterThan(10000, mb_strlen($text));
+
+        $startedAt = microtime(true);
+
+        $audio = AiClient::prompt($text, $this->registry)
+            ->usingProvider('elevenlabs')
+            ->usingModelConfig(ModelConfig::fromArray([
+                'outputSpeechVoice' => self::DEFAULT_VOICE_ID,
+            ]))
+            ->convertTextToSpeech();
+
+        $elapsed = microtime(true) - $startedAt;
+
+        $this->assertTrue($audio->isAudio());
+        $audioData = base64_decode($audio->getBase64Data());
+        $this->assertNotEmpty($audioData);
+
+        $filePath = $this->audioOutputDir . '/tts_long_form.mp3';
+        file_put_contents($filePath, $audioData);
+
+        fwrite(
+            STDERR,
+            sprintf(
+                "\nLong-form narration: %d characters -> %s of audio in %.1fs.\n"
+                . "  Compare against your max_execution_time before relying on the synchronous path.\n",
+                mb_strlen($text),
+                number_format(strlen($audioData) / 1024, 0) . ' KB',
+                $elapsed
+            )
+        );
     }
 
     /**

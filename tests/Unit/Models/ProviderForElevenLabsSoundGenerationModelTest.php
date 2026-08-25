@@ -199,6 +199,62 @@ class ProviderForElevenLabsSoundGenerationModelTest extends TestCase
         $this->assertEqualsWithDelta(0.3, $params['prompt_influence'], 0.001);
     }
 
+    public function testUnrecognisedCustomOptionsReachTheParams(): void
+    {
+        $config = ModelConfig::fromArray([
+            'customOptions' => [
+                'output_format' => 'mp3_22050_32',
+                'loop'          => true,
+            ],
+        ]);
+
+        $params = $this->createModel($config)->exposePrepareSoundGenerationParams('Rain');
+
+        $this->assertSame('mp3_22050_32', $params['output_format']);
+        $this->assertTrue($params['loop']);
+    }
+
+    public function testNumericStringsAreCoercedForDurationAndInfluence(): void
+    {
+        $config = ModelConfig::fromArray([
+            'customOptions' => [
+                'duration_seconds' => '4.5',
+                'prompt_influence' => '0.7',
+            ],
+        ]);
+
+        $params = $this->createModel($config)->exposePrepareSoundGenerationParams('Rain');
+
+        $this->assertIsFloat($params['duration_seconds']);
+        $this->assertEqualsWithDelta(4.5, $params['duration_seconds'], 0.001);
+        $this->assertIsFloat($params['prompt_influence']);
+        $this->assertEqualsWithDelta(0.7, $params['prompt_influence'], 0.001);
+    }
+
+    public function testNonNumericDurationIsIgnoredRatherThanSentAsZero(): void
+    {
+        $config = ModelConfig::fromArray([
+            'customOptions' => ['duration_seconds' => 'not-a-number'],
+        ]);
+
+        $params = $this->createModel($config)->exposePrepareSoundGenerationParams('Rain');
+
+        $this->assertArrayNotHasKey('duration_seconds', $params);
+    }
+
+    public function testCustomOptionCollidingWithTextThrows(): void
+    {
+        $config = ModelConfig::fromArray([
+            'customOptions' => ['text' => 'hijacked'],
+        ]);
+
+        $model = $this->createModel($config);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('text');
+        $model->exposePrepareSoundGenerationParams('Rain');
+    }
+
     // ------------------------------------------------------------------
     // API failure handling
     // ------------------------------------------------------------------
