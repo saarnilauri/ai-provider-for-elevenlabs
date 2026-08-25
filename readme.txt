@@ -1,5 +1,5 @@
 === AI Provider for ElevenLabs ===
-Contributors: laurisaarni
+Contributors: laurisaarni, whyisjake
 Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.0
