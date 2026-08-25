@@ -21,7 +21,7 @@ The ElevenLabs name and logo are trademarks of ElevenLabs.
 ## Requirements
 
 - PHP 7.4 or higher, with the `mbstring` extension (used when splitting long text for narration; present on virtually every WordPress host)
-- The [PHP AI Client](https://github.com/WordPress/php-ai-client) SDK, ^1.2, must be loadable:
+- The [PHP AI Client](https://github.com/WordPress/php-ai-client) SDK, ^1.4, must be loadable:
     - **WordPress 7.0 and later** bundle it in core (`wp-includes/php-ai-client/`). Nothing to install.
     - **Earlier WordPress** does not. The SDK is a Composer package, not a plugin -- there is
       nothing to install from the plugin directory -- so it has to be provided by something
