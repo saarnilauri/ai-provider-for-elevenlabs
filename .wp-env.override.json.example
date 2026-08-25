@@ -1,0 +1,6 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/wp-env.json",
+	"config": {
+		"ELEVENLABS_API_KEY": "paste-your-key-here"
+	}
+}

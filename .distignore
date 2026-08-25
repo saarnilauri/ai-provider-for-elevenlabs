@@ -5,6 +5,7 @@
 /composer.json
 /composer.lock
 /Makefile
+/docs
 /phpcs.xml.dist
 /phpstan.neon.dist
 /phpunit.xml.dist
@@ -12,4 +13,23 @@
 /scripts
 /tests
 /vendor
+/dist
 RELEASE_NOTES_*.md
+
+# Local credentials. The integration suite reads ELEVENLABS_API_KEY from .env,
+# and .wp-env.override.json carries the same key for the local WordPress
+# environment, so neither may ever be packaged.
+.env
+.env.*
+/.wp-env.json
+/.wp-env.override.json
+/.wp-env.override.json.example
+
+# Build, tool, and editor artefacts.
+/.phpunit.cache
+.phpunit.result.cache
+/.claude
+/.codex
+/.shotgun
+.DS_Store
+*.zip

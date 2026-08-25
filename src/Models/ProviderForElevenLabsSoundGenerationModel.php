@@ -121,26 +121,43 @@ class ProviderForElevenLabsSoundGenerationModel extends AbstractApiBasedModel im
     /**
      * Builds the request parameters for the sound generation API.
      *
-     * Merges the required `text` parameter with optional `duration_seconds`
-     * and `prompt_influence` values from custom options.
+     * `duration_seconds` and `prompt_influence` are coerced to floats, since the
+     * API rejects them as strings and callers commonly supply strings from form
+     * input. Every other custom option is passed through untouched.
+     *
+     * The model advertises `OptionEnum::customOptions()`, which promises callers
+     * that provider-specific parameters reach the API. Previously only those two
+     * keys were honoured and everything else was dropped silently.
      *
      * @since 0.1.0
      *
      * @param string $text The text description of the desired sound effect.
      * @return array<string, mixed> The request parameters.
+     * @throws InvalidArgumentException If a custom option collides with a provider-set parameter.
      */
     protected function prepareSoundGenerationParams(string $text): array
     {
         $params = ['text' => $text];
 
-        $customOptions = $this->getConfig()->getCustomOptions();
+        $coerceToFloat = ['duration_seconds', 'prompt_influence'];
 
-        if (isset($customOptions['duration_seconds']) && is_numeric($customOptions['duration_seconds'])) {
-            $params['duration_seconds'] = (float) $customOptions['duration_seconds'];
-        }
+        foreach ($this->getConfig()->getCustomOptions() as $key => $value) {
+            if (array_key_exists($key, $params)) {
+                throw new InvalidArgumentException(
+                    sprintf('The custom option "%s" conflicts with a parameter set by the provider.', $key)
+                );
+            }
 
-        if (isset($customOptions['prompt_influence']) && is_numeric($customOptions['prompt_influence'])) {
-            $params['prompt_influence'] = (float) $customOptions['prompt_influence'];
+            if (in_array($key, $coerceToFloat, true)) {
+                if (!is_numeric($value)) {
+                    continue;
+                }
+
+                $params[$key] = (float) $value;
+                continue;
+            }
+
+            $params[$key] = $value;
         }
 
         return $params;

@@ -299,6 +299,116 @@ class ProviderForElevenLabsModelMetadataDirectoryTest extends TestCase
         $directory->exposeParseResponseToModelMetadataList($response);
     }
 
+    // ------------------------------------------------------------------
+    // Per-model character limits
+    // ------------------------------------------------------------------
+
+    /**
+     * Builds a models response from raw model entries.
+     *
+     * @param list<array<string, mixed>> $models Raw model entries.
+     * @return Response
+     */
+    private function buildModelsResponse(array $models): Response
+    {
+        return new Response(
+            200,
+            ['Content-Type' => 'application/json'],
+            (string) json_encode($models, JSON_THROW_ON_ERROR)
+        );
+    }
+
+    public function testSeededLimitsAreAvailableWithoutFetchingModels(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $this->assertSame(10000, $directory->getMaxTextLength('eleven_multilingual_v2'));
+        $this->assertSame(5000, $directory->getMaxTextLength('eleven_v3'));
+        $this->assertSame(40000, $directory->getMaxTextLength('eleven_flash_v2_5'));
+    }
+
+    public function testLiveResponseOverridesTheSeededLimit(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse([
+            [
+                'model_id'                        => 'eleven_multilingual_v2',
+                'name'                            => 'Multilingual v2',
+                'can_do_text_to_speech'           => true,
+                'maximum_text_length_per_request' => 12345,
+            ],
+        ]));
+
+        $this->assertSame(12345, $directory->getMaxTextLength('eleven_multilingual_v2'));
+    }
+
+    public function testLimitIsLearnedForAModelNotSeededInConstants(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse([
+            [
+                'model_id'                        => 'eleven_future_v9',
+                'name'                            => 'Future v9',
+                'can_do_text_to_speech'           => true,
+                'maximum_text_length_per_request' => 250000,
+            ],
+        ]));
+
+        $this->assertSame(250000, $directory->getMaxTextLength('eleven_future_v9'));
+    }
+
+    public function testModelWithoutALimitFieldKeepsTheConservativeDefault(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse([
+            [
+                'model_id'              => 'eleven_unknown_v1',
+                'name'                  => 'Unknown v1',
+                'can_do_text_to_speech' => true,
+            ],
+        ]));
+
+        $this->assertSame(
+            MockProviderForElevenLabsModelMetadataDirectory::DEFAULT_MAX_TEXT_LENGTH,
+            $directory->getMaxTextLength('eleven_unknown_v1')
+        );
+    }
+
+    public function testUnknownModelReturnsTheConservativeDefault(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $this->assertSame(5000, $directory->getMaxTextLength('never-heard-of-it'));
+    }
+
+    public function testRetiredModelsWithoutAMeasuredLimitUseTheDefault(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        // The API no longer returns these, so no measured value exists. They must
+        // not carry an invented limit.
+        $this->assertSame(5000, $directory->getMaxTextLength('eleven_monolingual_v1'));
+        $this->assertSame(5000, $directory->getMaxTextLength('eleven_multilingual_v1'));
+    }
+
+    public function testNonPositiveOrNonIntegerLimitsAreIgnored(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+
+        $directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse([
+            [
+                'model_id'                        => 'eleven_multilingual_v2',
+                'can_do_text_to_speech'           => true,
+                'maximum_text_length_per_request' => 0,
+            ],
+        ]));
+
+        $this->assertSame(10000, $directory->getMaxTextLength('eleven_multilingual_v2'));
+    }
+
     /**
      * Finds a supported option by name.
      *

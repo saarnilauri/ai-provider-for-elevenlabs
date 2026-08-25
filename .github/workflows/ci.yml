@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The plugin declares "Requires PHP: 7.4", so 7.4 is the floor that has
+        # to keep working. The top of the range is the version development
+        # actually happens on, so CI verifies what a maintainer runs locally
+        # rather than stopping one release short of it.
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4']
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Run unit tests
+        run: composer test:unit
+
+  lint:
+    name: Lint and static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # phpcs enforces PHP 7.4 compatibility via PHPCompatibility regardless
+          # of the runtime, and phpstan reads the 7.4 platform pin in
+          # composer.json, so a single modern runtime is enough here.
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --no-check-all --no-check-publish
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-lint-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-lint-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Check coding standards
+        run: composer phpcs
+
+      - name: Run static analysis
+        run: composer phpstan
+
+  package:
+    name: Package and leak check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build plugin ZIP
+        run: ./scripts/build-plugin-zip.sh
+
+      # The release ZIP is built with rsync --exclude-from=.distignore. A local
+      # .env holds an ElevenLabs API key for the integration suite, and
+      # .wp-env.override.json holds the same key for the local WordPress
+      # environment. Neither was excluded before 0.4.0, so a maintainer running
+      # `make dist` would have published their key. Plant both and prove the
+      # packaged archive stays clean, so that regression cannot return silently.
+      - name: Verify secrets and dev files stay out of the release ZIP
+        run: |
+          set -euo pipefail
+
+          canary='CANARY_SECRET_MUST_NOT_SHIP'
+          printf 'ELEVENLABS_API_KEY=%s\n' "$canary" > .env
+          printf '{"config":{"ELEVENLABS_API_KEY":"%s"}}\n' "$canary" > .wp-env.override.json
+          mkdir -p .phpunit.cache && printf '%s\n' "$canary" > .phpunit.cache/test-results
+
+          ./scripts/build-plugin-zip.sh
+
+          if unzip -p dist/ai-provider-for-elevenlabs.zip | grep -q "$canary"; then
+            echo "::error::Canary secret found inside the release ZIP. Check .distignore."
+            exit 1
+          fi
+
+          for unwanted in .env .wp-env.override.json .wp-env.json .phpunit.cache tests/ vendor/ composer.json; do
+            if unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q -- "$unwanted"; then
+              echo "::error::'$unwanted' was packaged into the release ZIP. Check .distignore."
+              exit 1
+            fi
+          done
+
+          echo "Release ZIP is clean."
+
+      - name: Confirm the plugin bootstrap is present
+        run: |
+          set -euo pipefail
+          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/plugin.php'
+          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/LICENSE'
+          echo "Required files present."
+
+      - name: Upload plugin ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-provider-for-elevenlabs-zip
+          path: dist/ai-provider-for-elevenlabs.zip
+          if-no-files-found: error
