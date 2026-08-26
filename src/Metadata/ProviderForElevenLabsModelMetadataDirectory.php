@@ -246,9 +246,8 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
         $modelsData = $responseData;
         if (isset($responseData['data']) && is_array($responseData['data'])) {
             $modelsData = $responseData['data'];
-        } elseif ($responseData !== array_values($responseData)) {
-            // Not a list of models. (`array_is_list()` is avoided so the package
-            // runs on PHP 7.4 without WordPress providing the polyfill.)
+        } elseif (!array_is_list($responseData)) {
+            // Not a list of models.
             throw ResponseException::fromMissingData('ElevenLabs', 'models');
         }
 

@@ -23,11 +23,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The plugin declares "Requires PHP: 7.4", so 7.4 is the floor that has
+        # The plugin declares "Requires PHP: 8.1", so 8.1 is the floor that has
         # to keep working. The top of the range is the version development
         # actually happens on, so CI verifies what a maintainer runs locally
         # rather than stopping one release short of it.
-        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4']
+        php: ['8.1', '8.2', '8.3', '8.4', '8.5']
 
     steps:
       - name: Check out repository
@@ -68,8 +68,8 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          # phpcs enforces PHP 7.4 compatibility via PHPCompatibility regardless
-          # of the runtime, and phpstan reads the 7.4 platform pin in
+          # phpcs enforces PHP 8.1 compatibility via PHPCompatibility regardless
+          # of the runtime, and phpstan reads the 8.1 platform pin in
           # composer.json, so a single modern runtime is enough here.
           php-version: '8.3'
           coverage: none

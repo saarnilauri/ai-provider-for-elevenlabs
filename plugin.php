@@ -5,7 +5,7 @@
  * Plugin URI: https://github.com/saarnilauri/ai-provider-for-elevenlabs
  * Description: ElevenLabs provider for the WordPress AI API.
  * Requires at least: 6.9
- * Requires PHP: 7.4
+ * Requires PHP: 8.1
  * Version: 0.4.0
  * Author: Lauri Saarni
  * Author URI: https://profiles.wordpress.org/laurisaarni/

@@ -13,7 +13,7 @@
     <arg value="sp"/>
 
     <!-- Set minimum supported PHP version -->
-    <config name="testVersion" value="7.4-"/>
+    <config name="testVersion" value="8.1-"/>
 
     <!-- Enable colors in output -->
     <arg name="colors"/>
@@ -26,14 +26,13 @@
         <exclude-pattern>plugin.php</exclude-pattern>
     </rule>
 
-    <!-- Check PHP 7.4 compatibility -->
-    <rule ref="PHPCompatibility">
-        <!-- Exclude functions that are polyfilled in wordpress/php-ai-client -->
-        <exclude name="PHPCompatibility.FunctionUse.NewFunctions.array_is_listFound"/>
-        <exclude name="PHPCompatibility.FunctionUse.NewFunctions.str_containsFound"/>
-        <exclude name="PHPCompatibility.FunctionUse.NewFunctions.str_starts_withFound"/>
-        <exclude name="PHPCompatibility.FunctionUse.NewFunctions.str_ends_withFound"/>
-    </rule>
+    <!--
+        Check PHP 8.1 compatibility. The previous polyfill exclusions for
+        array_is_list, str_contains, str_starts_with and str_ends_with are no
+        longer needed: all four are native as of 8.1, so PHPCompatibility no
+        longer flags them.
+    -->
+    <rule ref="PHPCompatibility"/>
 
     <!-- Enforce namespace best practices -->
     <rule ref="SlevomatCodingStandard.Namespaces.DisallowGroupUse"/>

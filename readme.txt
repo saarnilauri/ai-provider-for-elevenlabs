@@ -4,7 +4,7 @@ Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.0
 Stable tag: 0.4.0
-Requires PHP: 7.4
+Requires PHP: 8.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,7 +32,7 @@ It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
 
 **Requirements:**
 
-* PHP 7.4 or higher
+* PHP 8.1 or higher. WordPress itself allows 7.4, but classifies it as insecure and unsupported, and 7.4 has had no security support since November 2022.
 * The PHP AI Client SDK must be loadable. WordPress 7.0 and later bundle it in core; earlier WordPress needs it provided via Composer (it is an SDK, not a plugin)
 * ElevenLabs API key
 
@@ -75,6 +75,11 @@ The default output format is MP3 (mp3_44100_128). Other supported formats includ
 
 == Changelog ==
 
+= Unreleased =
+* **Breaking:** raise the minimum PHP version to 8.1. WordPress core still allows 7.4, but reports it as insecure and unsupported and recommends 8.3, and 7.4 has had no security support since November 2022. Sites on PHP below 8.1 will not be offered this update
+* Test on PHP 8.1 through 8.5, replacing the 7.4-8.4 matrix, and drop the PHPCompatibility exclusions for `array_is_list`, `str_contains`, `str_starts_with` and `str_ends_with`, which are all native as of 8.1
+* Move the PHPUnit configuration to the 10.5 schema (`<source>` instead of `<coverage processUncoveredFiles>`, `cacheDirectory` instead of `cacheResultFile`), so the suite runs without deprecation warnings on the PHPUnit 10 already allowed by composer.json
+
 = 0.4.0 =
 * Long-form narration: text beyond the model's per-request character limit is split on paragraph and sentence boundaries, narrated across several requests carrying neighbouring text for prosody, and returned as one audio file (contributed by Jake Spurlock)
 * Automatic voice selection: when no `outputSpeechVoice` and no explicit default are configured, a voice is discovered from the account's own voices, preferring premade ones, before falling back to "George" (contributed by Jake Spurlock)
@@ -84,7 +89,7 @@ The default output format is MP3 (mp3_44100_128). Other supported formats includ
 * Fix the voice directory staying unusable for the rest of the request when built before credentials were available (contributed by Jake Spurlock)
 * Show the provider in the connector UI as "ElevenLabs" with a description and the official logo (contributed by Jake Spurlock)
 * Exclude local credentials (`.env`, `.wp-env.override.json`) and dev artifacts from the release ZIP, verified by a CI canary check (contributed by Jake Spurlock)
-* Add continuous integration (unit tests on PHP 7.4-8.4, phpcs, PHPStan, packaging leak check), a local `wp-env` environment, the GPL-2.0 license text, and fix test-suite autoloading on case-sensitive filesystems
+* Add continuous integration (unit tests on PHP 8.1-8.5, phpcs, PHPStan, packaging leak check), a local `wp-env` environment, the GPL-2.0 license text, and fix test-suite autoloading on case-sensitive filesystems
 
 = 0.3.0 =
 * Declare inline `outputFileType` support for text-to-speech and sound generation models, so support checks like `isSupportedForTextToSpeechConversion()` pass when callers request inline output (fixes compatibility with the WordPress AI plugin's Text to Speech experiment)
