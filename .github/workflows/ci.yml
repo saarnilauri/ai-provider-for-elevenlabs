@@ -143,7 +143,7 @@ jobs:
       - name: Confirm the plugin bootstrap is present
         run: |
           set -euo pipefail
-          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/plugin.php'
+          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/ai-provider-for-elevenlabs.php'
           unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/LICENSE'
           echo "Required files present."
 
@@ -153,3 +153,23 @@ jobs:
           name: ai-provider-for-elevenlabs-zip
           path: dist/ai-provider-for-elevenlabs.zip
           if-no-files-found: error
+
+  plugin-check:
+    name: WordPress.org Plugin Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Run the checks against the packaged plugin rather than the repository,
+      # because that is what WordPress.org actually receives: the development
+      # files .distignore strips would otherwise be reported as findings the
+      # reviewers will never see.
+      - name: Build plugin ZIP
+        run: ./scripts/build-plugin-zip.sh
+
+      - name: Run Plugin Check
+        uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: dist/ai-provider-for-elevenlabs

@@ -2,11 +2,11 @@
 Contributors: laurisaarni, whyisjake
 Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
-Tested up to: 7.0
-Stable tag: 0.4.0
+Tested up to: 7.1
+Stable tag: 1.0.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+License URI: https://spdx.org/licenses/GPL-2.0-or-later.html
 
 Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound effects generation.
 
@@ -14,6 +14,8 @@ Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound
 
 This plugin provides a third-party ElevenLabs integration for the PHP AI Client SDK. It enables WordPress sites to use ElevenLabs models for text-to-speech conversion and sound effects generation.
 It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
+
+The plugin has no admin screens of its own. It registers ElevenLabs with the AI Client so that WordPress core and any other plugin built on the AI Client can use it, and it never contacts ElevenLabs until such a request is actually made. See "External services" below.
 
 **Features:**
 
@@ -34,7 +36,7 @@ It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
 
 * PHP 7.4 or higher
 * The PHP AI Client SDK must be loadable. WordPress 7.0 and later bundle it in core; earlier WordPress needs it provided via Composer (it is an SDK, not a plugin)
-* ElevenLabs API key
+* An ElevenLabs account and API key
 
 == Installation ==
 
@@ -47,11 +49,11 @@ It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
 
 = How do I get an ElevenLabs API key? =
 
-Visit [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) to create an account and generate an API key.
+Visit [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) to create an account and generate an API key. Using this plugin requires an ElevenLabs account, and ElevenLabs bills you for the requests it makes on your behalf.
 
-= Does this plugin work without the PHP AI Client? =
+= Does this plugin work without the PHP AI Client SDK? =
 
-No, this plugin requires the PHP AI Client plugin to be installed and activated. It provides the ElevenLabs-specific implementation that the PHP AI Client uses.
+No. This plugin contains only the ElevenLabs-specific implementation of the AI Client's provider interfaces, so the SDK has to be loadable for it to do anything. WordPress 7.0 and later bundle the SDK in core. On earlier WordPress, the SDK has to be provided by your project (for example through Composer); it is a library, not a plugin. When the SDK is missing, this plugin registers nothing and stays inert instead of erroring.
 
 = How do I specify which voice to use? =
 
@@ -73,7 +75,35 @@ The WordPress.org AI plugin treats a connector as valid only when it can generat
 
 The default output format is MP3 (mp3_44100_128). Other supported formats include PCM, ulaw, Opus, and AAC at various sample rates and bitrates. When long text has to be split across requests, only formats whose audio can be joined are allowed (MP3, PCM, ulaw, alaw).
 
+= Does the plugin send anything anywhere on its own? =
+
+No. Nothing leaves your site until code on your site asks the AI Client for speech, sound, a model list, or a voice list. There is no telemetry, no analytics, and no phone-home. The "External services" section below documents every request the plugin can make.
+
+== External services ==
+
+This plugin relies on the ElevenLabs API (https://api.elevenlabs.io) to generate speech and sound. It is the service the plugin exists to integrate with, so the plugin cannot function without it. No request is ever made automatically: every one is the direct result of code on your site asking the AI Client for a generation or for provider metadata, and no request is made at all until an ElevenLabs API key is configured.
+
+The following requests can be made, always over HTTPS and always with your ElevenLabs API key in the `xi-api-key` request header:
+
+* `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}` -- sent when text-to-speech conversion is requested. The text to be narrated, the selected voice ID and model ID, and any voice or output settings you configured are sent. Text longer than the model's per-request character limit is sent as several requests, each also carrying the neighbouring text so the voice keeps its intonation across the split.
+* `POST https://api.elevenlabs.io/v1/sound-generation` -- sent when sound effect generation is requested. The text prompt describing the sound and any generation settings you configured are sent.
+* `GET https://api.elevenlabs.io/v1/models` -- sent when the list of available models is requested, to discover which models your account can use. Only your API key is sent. When the request fails, the plugin falls back to a built-in model list.
+* `GET https://api.elevenlabs.io/v2/voices` -- sent when the list of available voices is requested, including when a default voice has to be resolved automatically. Only your API key and pagination parameters are sent. The response is cached in a transient for 15 minutes per API key.
+
+The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it is governed by their terms and privacy policy:
+
+* Terms of Service: https://elevenlabs.io/terms-of-use
+* Privacy Policy: https://elevenlabs.io/privacy-policy
+
 == Changelog ==
+
+= 1.0.0 =
+* First release from the WordPress.org plugin directory
+* Rename the plugin bootstrap from `plugin.php` to `ai-provider-for-elevenlabs.php`, so the plugin headers live in the file matching the plugin slug as the WordPress.org directory expects. Sites that installed an earlier build from the GitHub ZIP have to reactivate the plugin once after updating
+* Document every ElevenLabs endpoint the plugin can call, what is sent to it and when, in a new "External services" section of the readme
+* Correct the readme's claim that a separate "PHP AI Client plugin" has to be installed: the AI Client is an SDK, bundled in WordPress 7.0 and later
+* Redraw the provider logo shown on the Connectors screen from the official ElevenLabs symbol, at the proportions and clear space their brand guidelines specify
+* Add the WordPress.org directory banner and icon, built from the official ElevenLabs artwork in their monochrome palette, a WordPress Playground blueprint for the directory preview, and a Plugin Check run in continuous integration
 
 = 0.4.0 =
 * Long-form narration: text beyond the model's per-request character limit is split on paragraph and sentence boundaries, narrated across several requests carrying neighbouring text for prosody, and returned as one audio file (contributed by Jake Spurlock)
@@ -112,6 +142,9 @@ The default output format is MP3 (mp3_44100_128). Other supported formats includ
 * Multiple output format support (MP3, PCM, Opus, AAC, ulaw)
 
 == Upgrade Notice ==
+
+= 1.0.0 =
+First WordPress.org release. The plugin bootstrap file was renamed to match the plugin slug, so if you installed an earlier build from GitHub, reactivate the plugin once after updating.
 
 = 0.1.0 =
 Initial release.

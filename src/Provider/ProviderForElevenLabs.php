@@ -72,10 +72,14 @@ class ProviderForElevenLabs extends AbstractApiProvider
             }
         }
 
-        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        // This exception carries a developer-facing message and is never echoed; the
+        // sniff cannot tell those apart from output. Escaping is not an option either,
+        // because esc_html() does not exist when the package is used outside WordPress.
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped
         throw new RuntimeException(
             'Unsupported model capabilities: ' . implode(', ', $capabilities)
         );
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
     }
 
     /**

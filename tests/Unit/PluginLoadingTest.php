@@ -10,7 +10,7 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Guards the manual class loading in plugin.php.
+ * Guards the manual class loading in ai-provider-for-elevenlabs.php.
  *
  * The packaged plugin ships without an autoloader: .distignore excludes
  * /vendor and /composer.json, so load_classes() is the only thing that makes a
@@ -42,7 +42,7 @@ class PluginLoadingTest extends TestCase
         $this->assertSame(
             [],
             $missing,
-            'These files under src/ are not required by load_classes() in plugin.php. '
+            'These files under src/ are not required by load_classes() in ai-provider-for-elevenlabs.php. '
             . 'The packaged plugin has no autoloader, so using them fatals in a real install. '
             . 'Add a require_once for each to load_classes().'
         );
@@ -76,14 +76,14 @@ class PluginLoadingTest extends TestCase
     /**
      * Returns the paths load_classes() requires, relative to src/.
      *
-     * Read as text rather than by calling load_classes(), because plugin.php
+     * Read as text rather than by calling load_classes(), because ai-provider-for-elevenlabs.php
      * returns early when ABSPATH is undefined and never declares its functions.
      *
      * @return list<string> Slash-prefixed paths, e.g. '/Text/TextChunker.php'.
      */
     private function requiredPaths(): array
     {
-        $pluginFile = $this->repositoryRoot() . '/plugin.php';
+        $pluginFile = $this->repositoryRoot() . '/ai-provider-for-elevenlabs.php';
         $source = file_get_contents($pluginFile);
 
         if ($source === false) {

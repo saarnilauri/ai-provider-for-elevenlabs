@@ -1,5 +1,11 @@
-<svg width="40" height="40" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-<rect width="500" height="500" rx="100" fill="white"/>
-<path d="M314 355H271V145H314V355Z" fill="black"/>
-<path d="M229 355H186V145H229V355Z" fill="black"/>
+<!--
+  The ElevenLabs "11" symbol, from the official artwork at
+  https://elevenlabs.io/brand, unaltered apart from the white holding square
+  that keeps it legible on any connector-screen background. The 876 unit box is
+  their own clear-space rule: three times the height of the bars.
+-->
+<svg width="40" height="40" viewBox="0 0 876 876" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<rect width="876" height="876" rx="175" fill="white"/>
+<path d="M468 292H528V584H468V292Z" fill="black"/>
+<path d="M348 292H408V584H348V292Z" fill="black"/>
 </svg>

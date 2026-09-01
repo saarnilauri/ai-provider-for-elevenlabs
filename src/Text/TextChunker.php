@@ -39,11 +39,13 @@ final class TextChunker
      */
     public static function split(string $text, int $limit): array
     {
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception message, never echoed.
         if ($limit < 1) {
             throw new InvalidArgumentException(
                 sprintf('The chunk limit must be a positive number of characters, got %d.', $limit)
             );
         }
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
         if (trim($text) === '') {
             return [];

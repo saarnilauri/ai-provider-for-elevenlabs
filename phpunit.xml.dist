@@ -22,7 +22,7 @@
               processUncoveredFiles="true">
         <include>
             <directory suffix=".php">src</directory>
-            <file>plugin.php</file>
+            <file>ai-provider-for-elevenlabs.php</file>
         </include>
     </coverage>
 </phpunit>

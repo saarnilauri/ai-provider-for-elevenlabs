@@ -37,7 +37,7 @@ If the SDK is not available, this plugin registers nothing and stays inert.
 composer require saarnilauri/ai-provider-for-elevenlabs
 ```
 
-The Composer distribution is intended for library usage and excludes `plugin.php`.
+The Composer distribution is intended for library usage and excludes `ai-provider-for-elevenlabs.php`.
 
 ### As a WordPress Plugin
 
@@ -319,7 +319,30 @@ make dist
 ./scripts/build-plugin-zip.sh
 ```
 
-The ZIP is created at `dist/ai-provider-for-elevenlabs.zip` and includes `plugin.php`.
+The ZIP is created at `dist/ai-provider-for-elevenlabs.zip` and includes `ai-provider-for-elevenlabs.php`.
+What it leaves out is defined by [`.distignore`](.distignore); CI plants a canary secret in `.env`
+and `.wp-env.override.json` on every run and fails if either reaches the archive.
+
+## WordPress.org directory assets
+
+`.wordpress-org/` holds the artwork and the WordPress Playground blueprint the plugin
+directory shows, and maps onto the `assets/` directory of the plugin's Subversion
+repository. It is excluded from the plugin ZIP. The banner and icon are generated
+rather than hand-drawn, so they can be rebuilt from source:
+
+```bash
+./scripts/build-wporg-assets.sh
+```
+
+This requires ImageMagick. The artwork follows the [ElevenLabs brand guidelines](https://elevenlabs.io/brand):
+their own wordmark and "11" symbol SVGs, scaled uniformly and never redrawn, in the
+monochrome palette they specify for ElevenAPI, with the clear space their guidelines
+ask for. The WordPress mark sits behind both so the result reads as a WordPress plugin
+rather than as official ElevenLabs artwork; this plugin is not affiliated with ElevenLabs.
+
+Note that `assets/images/elevenlabs.svg` is a different thing: that one ships inside
+the plugin, because the connector UI reads it to show the provider logo. It is the
+same official symbol, on a white holding square so it stays legible on any background.
 
 ## Development
 

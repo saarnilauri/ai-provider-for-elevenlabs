@@ -509,6 +509,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
             return;
         }
 
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception message, never echoed.
         throw new InvalidArgumentException(
             sprintf(
                 'Text longer than %d characters is narrated in several requests, but "%s" audio '
@@ -518,6 +519,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
                 $outputFormat
             )
         );
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
     }
 
     /**
@@ -546,6 +548,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
         ResponseUtil::throwIfNotSuccessful($response);
 
         $binaryData = $response->getBody();
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception message, never echoed.
         if ($binaryData === null || $binaryData === '') {
             throw ResponseException::fromInvalidData(
                 $this->providerMetadata()->getName(),
@@ -553,6 +556,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
                 'The audio response body was empty.'
             );
         }
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
         return $binaryData;
     }
@@ -654,6 +658,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
                 continue;
             }
 
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception messages, never echoed.
             if (in_array($key, self::PROVIDER_MANAGED_KEYS, true)) {
                 throw new InvalidArgumentException(
                     sprintf(
@@ -669,6 +674,7 @@ class ProviderForElevenLabsTextToSpeechModel extends AbstractApiBasedModel imple
                     sprintf('The custom option "%s" conflicts with a parameter set by the provider.', $key)
                 );
             }
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
             $params[$key] = $value;
         }

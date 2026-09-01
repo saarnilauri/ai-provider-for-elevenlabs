@@ -56,14 +56,15 @@ class ProviderForElevenLabsSoundGenerationModel extends AbstractApiBasedModel im
         ResponseUtil::throwIfNotSuccessful($response);
 
         $binaryData = $response->getBody();
+        // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception message, never echoed.
         if ($binaryData === null || $binaryData === '') {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             throw ResponseException::fromInvalidData(
                 $this->providerMetadata()->getName(),
                 'sound-generation',
                 'The audio response body was empty.'
             );
         }
+        // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
         $base64Data = base64_encode($binaryData);
         $audioFile = new File($base64Data, 'audio/mpeg');
@@ -142,11 +143,13 @@ class ProviderForElevenLabsSoundGenerationModel extends AbstractApiBasedModel im
         $coerceToFloat = ['duration_seconds', 'prompt_influence'];
 
         foreach ($this->getConfig()->getCustomOptions() as $key => $value) {
+            // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Developer-facing exception message, never echoed.
             if (array_key_exists($key, $params)) {
                 throw new InvalidArgumentException(
                     sprintf('The custom option "%s" conflicts with a parameter set by the provider.', $key)
                 );
             }
+            // phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 
             if (in_array($key, $coerceToFloat, true)) {
                 if (!is_numeric($value)) {

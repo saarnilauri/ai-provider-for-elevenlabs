@@ -1,0 +1,21 @@
+# The Composer package is the library half of this repository. The WordPress
+# plugin bootstrap and the WordPress.org directory assets have no meaning
+# there, so they are kept out of `composer archive` and GitHub source archives.
+/ai-provider-for-elevenlabs.php export-ignore
+/.wordpress-org export-ignore
+
+# Development, CI, and packaging files.
+/.github export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.distignore export-ignore
+/.wp-env.json export-ignore
+/.wp-env.override.json.example export-ignore
+/.env.example export-ignore
+/Makefile export-ignore
+/phpcs.xml.dist export-ignore
+/phpstan.neon.dist export-ignore
+/phpunit.xml.dist export-ignore
+/phpunit-integration.xml.dist export-ignore
+/scripts export-ignore
+/tests export-ignore

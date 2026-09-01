@@ -1,6 +1,6 @@
 {
     "name": "saarnilauri/ai-provider-for-elevenlabs",
-    "description": "ElevenLabs provider for the WordPress AI API.",
+    "description": "Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound effects generation.",
     "license": "GPL-2.0-or-later",
     "type": "wordpress-plugin",
     "keywords": [
