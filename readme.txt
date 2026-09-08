@@ -3,7 +3,7 @@ Contributors: laurisaarni, whyisjake
 Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.1
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://spdx.org/licenses/GPL-2.0-or-later.html
@@ -87,7 +87,7 @@ The following requests can be made, always over HTTPS and always with your Eleve
 
 * `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}` -- sent when text-to-speech conversion is requested. The text to be narrated, the selected voice ID and model ID, and any voice or output settings you configured are sent. Text longer than the model's per-request character limit is sent as several requests, each also carrying the neighbouring text so the voice keeps its intonation across the split.
 * `POST https://api.elevenlabs.io/v1/sound-generation` -- sent when sound effect generation is requested. The text prompt describing the sound and any generation settings you configured are sent.
-* `GET https://api.elevenlabs.io/v1/models` -- sent when the list of available models is requested, to discover which models your account can use. Only your API key is sent. When the request fails, the plugin falls back to a built-in model list.
+* `GET https://api.elevenlabs.io/v1/models` -- sent when the list of available models is requested, to discover which models your account can use, and when your API key is verified so that the Connectors screen can report whether it works. Only your API key is sent. When the model listing fails, the plugin falls back to a built-in model list; the result of a key verification is cached for 15 minutes so the request is not repeated on every page load.
 * `GET https://api.elevenlabs.io/v2/voices` -- sent when the list of available voices is requested, including when a default voice has to be resolved automatically. Only your API key and pagination parameters are sent. The response is cached in a transient for 15 minutes per API key.
 
 The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it is governed by their terms and privacy policy:
@@ -96,6 +96,11 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 * Privacy Policy: https://elevenlabs.io/privacy-policy
 
 == Changelog ==
+
+= 1.0.1 =
+* Verify the API key against ElevenLabs instead of only checking that one was entered, so Settings > Connectors reports whether the key actually works. A key rejected by ElevenLabs now shows as not connected, where any non-empty value previously showed as connected
+* Treat a key scoped without the Models permission as working rather than broken. Such a key still drives text-to-speech, and the plugin already falls back to its built-in model list, so the connection check accepts it. The verification result is cached for 15 minutes, under a name derived from a hash of the key rather than the key itself
+* Stop reading the core Connectors option (`connectors_ai_elevenlabs_api_key`) directly. WordPress passes the key to the AI Client itself, and the plugin already re-wraps it for the `xi-api-key` header ElevenLabs requires, so the direct read was redundant. This resolves a WordPress.org review finding about plugins handling AI Client credentials
 
 = 1.0.0 =
 * First release from the WordPress.org plugin directory
@@ -142,6 +147,9 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 * Multiple output format support (MP3, PCM, Opus, AAC, ulaw)
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Settings > Connectors now verifies your ElevenLabs key with the service instead of only checking that one was entered, so a mistyped key is reported instead of appearing to work.
 
 = 1.0.0 =
 First WordPress.org release. The plugin bootstrap file was renamed to match the plugin slug, so if you installed an earlier build from GitHub, reactivate the plugin once after updating.

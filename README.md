@@ -64,12 +64,35 @@ ElevenLabs API keys can be scoped with specific permissions. The minimum permiss
 |---|---|---|
 | Text-to-speech | Text-to-speech generation | Required for TTS functionality |
 | Sound generation | Sound effects generation | Required for sound effects |
-| Models | Dynamic model discovery | Optional -- the plugin falls back to a hardcoded model list when this permission is missing |
+| Models | Dynamic model discovery | Optional -- the plugin falls back to a hardcoded model list when this permission is missing, and the connection check treats such a key as working rather than rejected |
 | Voices | Listing available voices | Needed to browse voices via `VoiceDirectory`, and to pick a voice from your account automatically when `outputSpeechVoice` is not set |
 
 For full functionality, grant **Text-to-speech**, **Sound generation**, **Models**, and **Voices** permissions. For a minimal TTS-only setup, **Text-to-speech** alone is sufficient: without the **Voices** permission the provider cannot discover a voice from your account, and a prompt that omits `outputSpeechVoice` uses the premade "George" voice instead.
 
 You can manage API key permissions at [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys).
+
+### Connection checking
+
+`ElevenLabsProviderAvailability::isConfigured()` verifies the key with ElevenLabs rather than
+just checking that one is present, so Settings > Connectors reports whether the key actually
+works. It resolves the key from the environment variable, the constant, the AI Client registry,
+or the legacy credentials option, then issues one `GET /v1/models`:
+
+| Response | Verdict |
+| --- | --- |
+| `200` | configured |
+| `401` with `detail.status` of `missing_permissions` | configured -- the key is real, it just lacks `models_read` |
+| `401` otherwise | not configured |
+| `403`, `429`, `5xx`, or a transport failure | undetermined, reported as configured |
+
+Only an outright rejection counts as a failure, so a rate limit or an outage never presents a
+working setup as broken. Results are cached in a transient for 15 minutes, keyed by a hash of
+the API key so that changing the key invalidates the cache on its own.
+
+The probe builds its own [`ElevenLabsApiKeyAuthentication`](src/Provider/ElevenLabsApiKeyAuthentication.php)
+rather than reusing whatever the registry holds. WordPress sets a generic `Authorization: Bearer`
+authentication on the registry immediately before asking whether a key is valid, and ElevenLabs
+only accepts `xi-api-key`, so reusing it would reject every key it was asked to check.
 
 ## Usage
 

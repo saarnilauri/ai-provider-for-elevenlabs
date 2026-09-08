@@ -6,7 +6,7 @@
  * Description: Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound effects generation.
  * Requires at least: 6.9
  * Requires PHP: 7.4
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Lauri Saarni
  * Author URI: https://profiles.wordpress.org/laurisaarni/
  * License: GPL-2.0-or-later
@@ -84,13 +84,6 @@ function register_provider(): void
     $apiKey = getenv('ELEVENLABS_API_KEY');
     if ($apiKey === false && defined('ELEVENLABS_API_KEY')) {
         $apiKey = (string) constant('ELEVENLABS_API_KEY');
-    }
-    if ($apiKey === false || $apiKey === '') {
-        // WordPress 7.0+ core Connectors option (Settings > Connectors).
-        $connectorsKey = get_option('connectors_ai_elevenlabs_api_key', '');
-        if (is_string($connectorsKey) && $connectorsKey !== '') {
-            $apiKey = $connectorsKey;
-        }
     }
     if ($apiKey === false || $apiKey === '') {
         // Legacy wp-ai-client credentials option (pre-7.0).
