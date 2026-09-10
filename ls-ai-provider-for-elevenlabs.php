@@ -1,17 +1,17 @@
 <?php
 
 /**
- * Plugin Name: AI Provider for ElevenLabs
+ * Plugin Name: LS AI Provider for ElevenLabs
  * Plugin URI: https://github.com/saarnilauri/ai-provider-for-elevenlabs
  * Description: Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound effects generation.
  * Requires at least: 6.9
  * Requires PHP: 7.4
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Lauri Saarni
  * Author URI: https://profiles.wordpress.org/laurisaarni/
  * License: GPL-2.0-or-later
  * License URI: https://spdx.org/licenses/GPL-2.0-or-later.html
- * Text Domain: ai-provider-for-elevenlabs
+ * Text Domain: ls-ai-provider-for-elevenlabs
  *
  * @package AiProviderForElevenLabs
  */

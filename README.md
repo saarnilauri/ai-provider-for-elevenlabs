@@ -1,8 +1,10 @@
-# AI Provider for ElevenLabs
+# LS AI Provider for ElevenLabs
 
 A third-party provider for [ElevenLabs](https://elevenlabs.io/) in the [PHP AI Client](https://github.com/WordPress/php-ai-client) SDK. Works as both a Composer package and a WordPress plugin.
 
 This project is independent and is not affiliated with, endorsed by, or sponsored by ElevenLabs.
+"LS" is the author's initials, Lauri Saarni, because the WordPress.org plugin directory
+requires a plugin name to begin with a distinctive identifier rather than a generic description.
 `assets/images/elevenlabs.svg` is the official ElevenLabs symbol from their
 [brand kit](https://elevenlabs.io/brand), used unmodified to identify the provider.
 The ElevenLabs name and logo are trademarks of ElevenLabs.
@@ -37,11 +39,11 @@ If the SDK is not available, this plugin registers nothing and stays inert.
 composer require saarnilauri/ai-provider-for-elevenlabs
 ```
 
-The Composer distribution is intended for library usage and excludes `ai-provider-for-elevenlabs.php`.
+The Composer distribution is intended for library usage and excludes `ls-ai-provider-for-elevenlabs.php`.
 
 ### As a WordPress Plugin
 
-1. Download `ai-provider-for-elevenlabs.zip` from [GitHub Releases](https://github.com/saarnilauri/ai-provider-for-elevenlabs/releases) (do not use GitHub "Source code" archives)
+1. Download `ls-ai-provider-for-elevenlabs.zip` from [GitHub Releases](https://github.com/saarnilauri/ai-provider-for-elevenlabs/releases) (do not use GitHub "Source code" archives)
 2. Upload the ZIP in WordPress admin via Plugins > Add New Plugin > Upload Plugin
 3. Ensure the PHP AI Client plugin is installed and activated
 4. Activate the plugin through the WordPress admin
@@ -342,7 +344,7 @@ make dist
 ./scripts/build-plugin-zip.sh
 ```
 
-The ZIP is created at `dist/ai-provider-for-elevenlabs.zip` and includes `ai-provider-for-elevenlabs.php`.
+The ZIP is created at `dist/ls-ai-provider-for-elevenlabs.zip` and includes `ls-ai-provider-for-elevenlabs.php`.
 What it leaves out is defined by [`.distignore`](.distignore); CI plants a canary secret in `.env`
 and `.wp-env.override.json` on every run and fails if either reaches the archive.
 

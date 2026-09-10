@@ -95,7 +95,7 @@ class ProviderForElevenLabs extends AbstractApiProvider
         // literal is repeated so that i18n tooling can extract the string.
         $description = 'Text-to-speech and sound effects with ElevenLabs.';
         if (function_exists('__')) {
-            $translated = __('Text-to-speech and sound effects with ElevenLabs.', 'ai-provider-for-elevenlabs');
+            $translated = __('Text-to-speech and sound effects with ElevenLabs.', 'ls-ai-provider-for-elevenlabs');
             if (is_string($translated)) {
                 $description = $translated;
             }

@@ -25,14 +25,14 @@ jobs:
         if: env.RELEASE_VERSION != ''
         run: |
           README_VERSION="$(grep -E '^Stable tag:' readme.txt | head -n1 | sed -E 's/^Stable tag:[[:space:]]*//')"
-          PLUGIN_VERSION="$(grep -E '^ \* Version:' ai-provider-for-elevenlabs.php | head -n1 | sed -E 's/^ \* Version:[[:space:]]*//')"
+          PLUGIN_VERSION="$(grep -E '^ \* Version:' ls-ai-provider-for-elevenlabs.php | head -n1 | sed -E 's/^ \* Version:[[:space:]]*//')"
 
           echo "Tag version: ${RELEASE_VERSION}"
           echo "readme.txt Stable tag: ${README_VERSION}"
-          echo "ai-provider-for-elevenlabs.php Version: ${PLUGIN_VERSION}"
+          echo "ls-ai-provider-for-elevenlabs.php Version: ${PLUGIN_VERSION}"
 
           if [ "${README_VERSION}" != "${RELEASE_VERSION}" ] || [ "${PLUGIN_VERSION}" != "${RELEASE_VERSION}" ]; then
-            echo "::error::Version mismatch. Update readme.txt Stable tag and ai-provider-for-elevenlabs.php Version to ${RELEASE_VERSION} before tagging."
+            echo "::error::Version mismatch. Update readme.txt Stable tag and ls-ai-provider-for-elevenlabs.php Version to ${RELEASE_VERSION} before tagging."
             exit 1
           fi
 
@@ -42,13 +42,13 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-provider-for-elevenlabs-zip
-          path: dist/ai-provider-for-elevenlabs.zip
+          name: ls-ai-provider-for-elevenlabs-zip
+          path: dist/ls-ai-provider-for-elevenlabs.zip
           if-no-files-found: error
 
       - name: Attach ZIP to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ai-provider-for-elevenlabs.zip
+          files: dist/ls-ai-provider-for-elevenlabs.zip
           generate_release_notes: true

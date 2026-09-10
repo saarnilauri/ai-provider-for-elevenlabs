@@ -1,7 +1,7 @@
 # The Composer package is the library half of this repository. The WordPress
 # plugin bootstrap and the WordPress.org directory assets have no meaning
 # there, so they are kept out of `composer archive` and GitHub source archives.
-/ai-provider-for-elevenlabs.php export-ignore
+/ls-ai-provider-for-elevenlabs.php export-ignore
 /.wordpress-org export-ignore
 
 # Development, CI, and packaging files.

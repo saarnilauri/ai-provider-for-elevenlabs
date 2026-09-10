@@ -126,13 +126,13 @@ jobs:
 
           ./scripts/build-plugin-zip.sh
 
-          if unzip -p dist/ai-provider-for-elevenlabs.zip | grep -q "$canary"; then
+          if unzip -p dist/ls-ai-provider-for-elevenlabs.zip | grep -q "$canary"; then
             echo "::error::Canary secret found inside the release ZIP. Check .distignore."
             exit 1
           fi
 
           for unwanted in .env .wp-env.override.json .wp-env.json .phpunit.cache tests/ vendor/ composer.json; do
-            if unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q -- "$unwanted"; then
+            if unzip -l dist/ls-ai-provider-for-elevenlabs.zip | grep -q -- "$unwanted"; then
               echo "::error::'$unwanted' was packaged into the release ZIP. Check .distignore."
               exit 1
             fi
@@ -143,15 +143,15 @@ jobs:
       - name: Confirm the plugin bootstrap is present
         run: |
           set -euo pipefail
-          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/ai-provider-for-elevenlabs.php'
-          unzip -l dist/ai-provider-for-elevenlabs.zip | grep -q 'ai-provider-for-elevenlabs/LICENSE'
+          unzip -l dist/ls-ai-provider-for-elevenlabs.zip | grep -q 'ls-ai-provider-for-elevenlabs/ls-ai-provider-for-elevenlabs.php'
+          unzip -l dist/ls-ai-provider-for-elevenlabs.zip | grep -q 'ls-ai-provider-for-elevenlabs/LICENSE'
           echo "Required files present."
 
       - name: Upload plugin ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: ai-provider-for-elevenlabs-zip
-          path: dist/ai-provider-for-elevenlabs.zip
+          name: ls-ai-provider-for-elevenlabs-zip
+          path: dist/ls-ai-provider-for-elevenlabs.zip
           if-no-files-found: error
 
   plugin-check:
@@ -172,4 +172,4 @@ jobs:
       - name: Run Plugin Check
         uses: wordpress/plugin-check-action@v1
         with:
-          build-dir: dist/ai-provider-for-elevenlabs
+          build-dir: dist/ls-ai-provider-for-elevenlabs

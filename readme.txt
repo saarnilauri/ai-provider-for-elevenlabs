@@ -1,9 +1,9 @@
-=== AI Provider for ElevenLabs ===
+=== LS AI Provider for ElevenLabs ===
 Contributors: laurisaarni, whyisjake
 Tags: ai, elevenlabs, text-to-speech, tts, connector
 Requires at least: 6.9
 Tested up to: 7.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://spdx.org/licenses/GPL-2.0-or-later.html
@@ -14,6 +14,7 @@ Independent WordPress AI Client provider for ElevenLabs text-to-speech and sound
 
 This plugin provides a third-party ElevenLabs integration for the PHP AI Client SDK. It enables WordPress sites to use ElevenLabs models for text-to-speech conversion and sound effects generation.
 It is not affiliated with, endorsed by, or sponsored by ElevenLabs.
+"LS" is the author's initials, Lauri Saarni, because the WordPress.org plugin directory requires a plugin name to begin with a distinctive identifier rather than a generic description.
 
 The plugin has no admin screens of its own. It registers ElevenLabs with the AI Client so that WordPress core and any other plugin built on the AI Client can use it, and it never contacts ElevenLabs until such a request is actually made. See "External services" below.
 
@@ -41,7 +42,7 @@ The plugin has no admin screens of its own. It registers ElevenLabs with the AI 
 == Installation ==
 
 1. Ensure the PHP AI Client SDK is available (bundled in WordPress 7.0+)
-2. Upload the plugin files to `/wp-content/plugins/ai-provider-for-elevenlabs/`
+2. Upload the plugin files to `/wp-content/plugins/ls-ai-provider-for-elevenlabs/`
 3. Activate the plugin through the 'Plugins' menu in WordPress
 4. Configure your ElevenLabs API key in Settings > Connectors (WordPress 7.0+), or via the `ELEVENLABS_API_KEY` environment variable or constant
 
@@ -97,6 +98,11 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 
 == Changelog ==
 
+= 1.0.2 =
+* Rename the plugin to "LS AI Provider for ElevenLabs", with the permalink `ls-ai-provider-for-elevenlabs`. The WordPress.org plugin directory requires a plugin name to begin with a distinctive identifier, and "AI Provider" on its own is a generic description; "LS" is the author's initials
+* Rename the bootstrap to `ls-ai-provider-for-elevenlabs.php` and the text domain to `ls-ai-provider-for-elevenlabs`, both of which have to match the permalink
+* Keep the filter, option and transient names (`ai_provider_for_elevenlabs_*`) and the Composer package name (`saarnilauri/ai-provider-for-elevenlabs`) unchanged, so existing integrations and Composer installs are unaffected
+
 = 1.0.1 =
 * Verify the API key against ElevenLabs instead of only checking that one was entered, so Settings > Connectors reports whether the key actually works. A key rejected by ElevenLabs now shows as not connected, where any non-empty value previously showed as connected
 * Treat a key scoped without the Models permission as working rather than broken. Such a key still drives text-to-speech, and the plugin already falls back to its built-in model list, so the connection check accepts it. The verification result is cached for 15 minutes, under a name derived from a hash of the key rather than the key itself
@@ -147,6 +153,9 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 * Multiple output format support (MP3, PCM, Opus, AAC, ulaw)
 
 == Upgrade Notice ==
+
+= 1.0.2 =
+Renamed to "LS AI Provider for ElevenLabs" to meet the directory's naming requirements. Filter, option and Composer package names are unchanged, so existing integrations keep working.
 
 = 1.0.1 =
 Settings > Connectors now verifies your ElevenLabs key with the service instead of only checking that one was entered, so a mistyped key is reported instead of appearing to work.
