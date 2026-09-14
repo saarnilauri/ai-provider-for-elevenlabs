@@ -1,0 +1,121 @@
+name: Deploy to WordPress.org
+
+# Tagging a release publishes it. The manual trigger exists for the first
+# deploy, whose tag predates this workflow, and for re-running one that failed
+# part way; it defaults to a dry run so that a mistyped version cannot publish.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy, e.g. 1.0.2. Defaults to the Stable tag in readme.txt."
+        required: false
+        type: string
+      dry-run:
+        description: "Build and diff against SVN without committing."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# A Subversion commit to WordPress.org is public and permanent, so never let two
+# deploys race each other.
+concurrency:
+  group: deploy-to-wordpress-org
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to WordPress.org
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve the version to deploy
+        id: version
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            SOURCE="workflow input"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            SOURCE="git tag ${GITHUB_REF_NAME}"
+          else
+            VERSION="$(grep -E '^Stable tag:' readme.txt | head -n1 | sed -E 's/^Stable tag:[[:space:]]*//')"
+            SOURCE="readme.txt Stable tag"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${VERSION} (from ${SOURCE})"
+
+      # WordPress serves whatever "Stable tag" points at, so a trunk whose
+      # Stable tag disagrees with the tag directory being created either serves
+      # the wrong code or nothing at all. Both have to match what is deployed.
+      - name: Verify the committed versions agree
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.version.outputs.version }}"
+          README_VERSION="$(grep -E '^Stable tag:' readme.txt | head -n1 | sed -E 's/^Stable tag:[[:space:]]*//')"
+          PLUGIN_VERSION="$(grep -E '^ \* Version:' ls-ai-provider-for-elevenlabs.php | head -n1 | sed -E 's/^ \* Version:[[:space:]]*//')"
+
+          echo "Deploying:              ${VERSION}"
+          echo "readme.txt Stable tag:  ${README_VERSION}"
+          echo "Plugin header Version:  ${PLUGIN_VERSION}"
+
+          if [ "${README_VERSION}" != "${VERSION}" ] || [ "${PLUGIN_VERSION}" != "${VERSION}" ]; then
+            echo "::error::Version mismatch. readme.txt Stable tag and the plugin header must both be ${VERSION}."
+            exit 1
+          fi
+
+      - name: Build the plugin
+        run: ./scripts/build-plugin-zip.sh
+
+      # The build is what CI already leak-checks and runs Plugin Check against,
+      # so deploying that directory rather than re-deriving one from .distignore
+      # keeps Subversion, the GitHub release, and the checked artifact identical.
+      # This repeats the credential check anyway, because a Subversion commit
+      # cannot be taken back the way a GitHub release can.
+      - name: Refuse to publish local credentials
+        run: |
+          set -euo pipefail
+
+          BUILD_DIR="dist/ls-ai-provider-for-elevenlabs"
+
+          for unwanted in .env .env.local .wp-env.json .wp-env.override.json .phpunit.cache .git .github tests vendor node_modules; do
+            if [ -e "${BUILD_DIR}/${unwanted}" ]; then
+              echo "::error::'${unwanted}' is present in the build. Check .distignore before publishing."
+              exit 1
+            fi
+          done
+
+          if grep -rlE 'ELEVENLABS_API_KEY[[:space:]]*=[[:space:]]*.+' "${BUILD_DIR}" 2>/dev/null | grep -v -e '\.md$' -e 'readme\.txt$'; then
+            echo "::error::Something that looks like an API key assignment is in the build."
+            exit 1
+          fi
+
+          echo "Build is clean."
+
+      - name: Deploy to WordPress.org
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # v2.3.0
+        with:
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: ls-ai-provider-for-elevenlabs
+          VERSION: ${{ steps.version.outputs.version }}
+          # Publish the built plugin, not the repository. ASSETS_DIR is read
+          # from the workspace separately, so .wordpress-org still reaches the
+          # top-level assets/ directory in Subversion even though .distignore
+          # keeps it out of the build.
+          BUILD_DIR: dist/ls-ai-provider-for-elevenlabs
+          ASSETS_DIR: .wordpress-org
