@@ -102,7 +102,7 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 
 == Changelog ==
 
-= Unreleased =
+= n.e.x.t =
 * Support the Eleven v4 and v4 Turbo models, and Eleven v3 Conversational, including in the built-in model list used when the API key lacks the Models permission. Drop the retired English v1 and Multilingual v1 models from that list
 * Use Eleven v4 by default when a prompt names no model, then Multilingual v2. The provider previously listed models alphabetically, which made the English-only Flash v2 the default
 * Choose the default model with the `ELEVENLABS_DEFAULT_MODEL_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_model_id` option, or the filter of the same name

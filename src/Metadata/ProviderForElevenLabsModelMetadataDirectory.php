@@ -96,7 +96,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * never picks a model does not get an English-only one. Models not listed
      * here follow in alphabetical order.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      *
      * @var list<string>
      */
@@ -184,7 +184,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * at once, instead of the list cached under the old settings being served
      * until it expires.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      */
     protected function getBaseCacheKey(): string
     {
@@ -207,7 +207,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * are configured.
      *
      * @since 0.1.0
-     * @since 1.1.0 Narrows the text-to-speech models to the allowed models.
+     * @since n.e.x.t Narrows the text-to-speech models to the allowed models.
      */
     protected function sendListModelsRequest(): array
     {
@@ -379,7 +379,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * to the first matching model when a prompt names no model preference, so
      * this order is what makes the configured default take effect.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      *
      * @param list<ModelMetadata> $models The models to sort.
      * @return list<ModelMetadata> The sorted models.
@@ -427,7 +427,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * An empty result leaves {@see self::MODEL_PRIORITY} in charge, and a model
      * the account does not offer is ignored.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      *
      * @return string The default model ID, or an empty string for none.
      */
@@ -458,7 +458,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
             /**
              * Filters the model listed first, used when a prompt names no model preference.
              *
-             * @since 1.1.0
+             * @since n.e.x.t
              *
              * @param string $modelId The resolved default model ID, or an empty string for none.
              */
@@ -478,7 +478,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * An empty list, the default, allows every model the account offers. The
      * sound generation model is never affected.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      *
      * @return list<string> The allowed model IDs, or an empty list for no restriction.
      */
@@ -495,7 +495,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
          * offer every model the account has. A list matching none of the
          * account's models is ignored.
          *
-         * @since 1.1.0
+         * @since n.e.x.t
          *
          * @param list<string> $modelIds The allowed model IDs. Empty for no restriction.
          */
@@ -521,7 +521,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * Read from the `ai_provider_for_elevenlabs_include_alpha_models` WordPress
      * filter, off by default.
      *
-     * @since 1.1.0
+     * @since n.e.x.t
      *
      * @return bool Whether alpha models are listed.
      */
@@ -537,7 +537,7 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
          * ElevenLabs lists alpha models to every account without saying whether
          * the account has access, so enable this only if yours does.
          *
-         * @since 1.1.0
+         * @since n.e.x.t
          *
          * @param bool $include Whether to list alpha models. Default false.
          */
