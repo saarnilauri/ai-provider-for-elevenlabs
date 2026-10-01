@@ -7,6 +7,9 @@ namespace AiProviderForElevenLabs\Tests\Unit\Metadata;
 use PHPUnit\Framework\TestCase;
 use WordPress\AiClient\Files\Enums\FileTypeEnum;
 use WordPress\AiClient\Messages\Enums\ModalityEnum;
+use WordPress\AiClient\Providers\Http\Contracts\HttpTransporterInterface;
+use WordPress\AiClient\Providers\Http\Contracts\RequestAuthenticationInterface;
+use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\DTO\Response;
 use WordPress\AiClient\Providers\Models\DTO\ModelMetadata;
 use WordPress\AiClient\Providers\Models\DTO\SupportedOption;
@@ -196,9 +199,9 @@ class ProviderForElevenLabsModelMetadataDirectoryTest extends TestCase
     }
 
     /**
-     * Tests that models are sorted alphabetically by ID.
+     * Tests that priority models lead and the rest are sorted by ID.
      */
-    public function testModelsAreSortedById(): void
+    public function testModelsAreSortedByPriorityThenId(): void
     {
         $response = new Response(
             200,
@@ -219,15 +222,191 @@ class ProviderForElevenLabsModelMetadataDirectoryTest extends TestCase
                     'name' => 'Eleven Multilingual v2',
                     'can_do_text_to_speech' => true,
                 ],
+                [
+                    'model_id' => 'eleven_v4',
+                    'name' => 'Eleven v4',
+                    'can_do_text_to_speech' => true,
+                ],
             ])
         );
 
         $directory = new MockProviderForElevenLabsModelMetadataDirectory();
         $models = $directory->exposeParseResponseToModelMetadataList($response);
 
-        $this->assertSame('eleven_flash_v2', $models[0]->getId());
-        $this->assertSame('eleven_multilingual_v2', $models[1]->getId());
-        $this->assertSame('eleven_turbo_v2_5', $models[2]->getId());
+        $this->assertSame(
+            ['eleven_v4', 'eleven_multilingual_v2', 'eleven_flash_v2', 'eleven_turbo_v2_5'],
+            array_map(static fn (ModelMetadata $model): string => $model->getId(), $models)
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Model selection
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns the IDs of a models map or list, in order.
+     *
+     * @param array<ModelMetadata> $models
+     * @return list<string>
+     */
+    private function modelIds(array $models): array
+    {
+        return array_values(array_map(static fn (ModelMetadata $model): string => $model->getId(), $models));
+    }
+
+    public function testFallbackModelsListV4FirstAndNoRetiredModels(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $modelIds = $this->modelIds($directory->exposeSendListModelsRequest());
+
+        $this->assertSame('eleven_v4', $modelIds[0]);
+        $this->assertContains('eleven_v4_turbo', $modelIds);
+        $this->assertContains('eleven_v3_conversational', $modelIds);
+        $this->assertNotContains('eleven_monolingual_v1', $modelIds);
+        $this->assertNotContains('eleven_multilingual_v1', $modelIds);
+    }
+
+    public function testConfiguredDefaultModelIsListedFirst(): void
+    {
+        putenv('ELEVENLABS_DEFAULT_MODEL_ID=eleven_flash_v2_5');
+
+        try {
+            $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+            $modelIds = $this->modelIds($directory->exposeSendListModelsRequest());
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_MODEL_ID');
+        }
+
+        $this->assertSame(['eleven_flash_v2_5', 'eleven_v4', 'eleven_multilingual_v2'], array_slice($modelIds, 0, 3));
+    }
+
+    public function testDefaultModelFromThePriorityListMovesAheadOnce(): void
+    {
+        putenv('ELEVENLABS_DEFAULT_MODEL_ID=eleven_v3');
+
+        try {
+            $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+            $modelIds = $this->modelIds($directory->exposeSendListModelsRequest());
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_MODEL_ID');
+        }
+
+        $this->assertSame(['eleven_v3', 'eleven_v4', 'eleven_multilingual_v2'], array_slice($modelIds, 0, 3));
+        $this->assertSame($modelIds, array_values(array_unique($modelIds)));
+    }
+
+    public function testAllowedModelsNarrowTheLiveList(): void
+    {
+        $transporter = $this->createMock(HttpTransporterInterface::class);
+        $transporter
+            ->expects($this->once())
+            ->method('send')
+            ->willReturn($this->buildModelsResponse([
+                ['model_id' => 'eleven_v4', 'can_do_text_to_speech' => true],
+                ['model_id' => 'eleven_flash_v2_5', 'can_do_text_to_speech' => true],
+                ['model_id' => 'eleven_multilingual_v2', 'can_do_text_to_speech' => true],
+            ]));
+
+        $authentication = $this->createMock(RequestAuthenticationInterface::class);
+        $authentication
+            ->method('authenticateRequest')
+            ->willReturnCallback(static fn (Request $request): Request => $request);
+
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $directory->setHttpTransporter($transporter);
+        $directory->setRequestAuthentication($authentication);
+        $directory->allowedModelIds = ['eleven_flash_v2_5', 'eleven_v4_turbo'];
+
+        // eleven_v4_turbo is in the fallback list but not in this live response,
+        // so it must not appear: the filter narrows the live list, it adds nothing.
+        $this->assertSame(
+            ['eleven_flash_v2_5', 'elevenlabs-sound-generation'],
+            $this->modelIds($directory->exposeSendListModelsRequest())
+        );
+    }
+
+    public function testUnknownDefaultModelIsIgnored(): void
+    {
+        putenv('ELEVENLABS_DEFAULT_MODEL_ID=eleven_not_a_model');
+
+        try {
+            $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+            $modelIds = $this->modelIds($directory->exposeSendListModelsRequest());
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_MODEL_ID');
+        }
+
+        $this->assertSame('eleven_v4', $modelIds[0]);
+        $this->assertNotContains('eleven_not_a_model', $modelIds);
+    }
+
+    public function testAllowedModelsNarrowTheListAndKeepSoundGeneration(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $directory->allowedModelIds = ['eleven_flash_v2_5', 'eleven_v4'];
+
+        $this->assertSame(
+            ['eleven_v4', 'eleven_flash_v2_5', 'elevenlabs-sound-generation'],
+            $this->modelIds($directory->exposeSendListModelsRequest())
+        );
+    }
+
+    public function testAllowedModelsMatchingNothingAreIgnored(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $directory->allowedModelIds = ['eleven_not_a_model'];
+
+        $modelIds = $this->modelIds($directory->exposeSendListModelsRequest());
+
+        $this->assertContains('eleven_v4', $modelIds);
+        $this->assertContains('eleven_multilingual_v2', $modelIds);
+    }
+
+    public function testAlphaModelsAreExcludedUnlessIncluded(): void
+    {
+        $models = [
+            [
+                'model_id'              => 'eleven_v4',
+                'can_do_text_to_speech' => true,
+                'requires_alpha_access' => false,
+            ],
+            [
+                'model_id'              => 'eleven_v5_alpha',
+                'can_do_text_to_speech' => true,
+                'requires_alpha_access' => true,
+            ],
+        ];
+
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $this->assertSame(
+            ['eleven_v4'],
+            $this->modelIds($directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse($models)))
+        );
+
+        $directory->alphaModelsIncluded = true;
+        $this->assertSame(
+            ['eleven_v4', 'eleven_v5_alpha'],
+            $this->modelIds($directory->exposeParseResponseToModelMetadataList($this->buildModelsResponse($models)))
+        );
+    }
+
+    public function testCacheKeyChangesWithModelSettings(): void
+    {
+        $directory = new MockProviderForElevenLabsModelMetadataDirectory();
+        $defaultKey = $directory->exposeGetBaseCacheKey();
+
+        $directory->allowedModelIds = ['eleven_v4'];
+        $allowedKey = $directory->exposeGetBaseCacheKey();
+
+        putenv('ELEVENLABS_DEFAULT_MODEL_ID=eleven_v3');
+        try {
+            $defaultModelKey = $directory->exposeGetBaseCacheKey();
+        } finally {
+            putenv('ELEVENLABS_DEFAULT_MODEL_ID');
+        }
+
+        $this->assertNotSame($defaultKey, $allowedKey);
+        $this->assertNotSame($allowedKey, $defaultModelKey);
     }
 
     /**
@@ -322,8 +501,11 @@ class ProviderForElevenLabsModelMetadataDirectoryTest extends TestCase
     {
         $directory = new MockProviderForElevenLabsModelMetadataDirectory();
 
+        $this->assertSame(10000, $directory->getMaxTextLength('eleven_v4'));
+        $this->assertSame(10000, $directory->getMaxTextLength('eleven_v4_turbo'));
         $this->assertSame(10000, $directory->getMaxTextLength('eleven_multilingual_v2'));
         $this->assertSame(5000, $directory->getMaxTextLength('eleven_v3'));
+        $this->assertSame(5000, $directory->getMaxTextLength('eleven_v3_conversational'));
         $this->assertSame(40000, $directory->getMaxTextLength('eleven_flash_v2_5'));
     }
 
