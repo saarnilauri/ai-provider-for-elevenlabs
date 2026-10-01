@@ -164,8 +164,8 @@ model:
 
 | Model | Characters per request |
 |---|---|
-| `eleven_v3` | 5,000 |
-| `eleven_multilingual_v2` (default) | 10,000 |
+| `eleven_v3`, `eleven_v3_conversational` | 5,000 |
+| `eleven_v4` (default), `eleven_v4_turbo`, `eleven_multilingual_v2` | 10,000 |
 | `eleven_turbo_v2`, `eleven_flash_v2` | 30,000 |
 | `eleven_turbo_v2_5`, `eleven_flash_v2_5` | 40,000 |
 
@@ -292,21 +292,69 @@ if ( $voice ) {
 
 ## Available Models
 
-Models are dynamically discovered from the ElevenLabs `/models` API endpoint. Common models include:
+Models are dynamically discovered from the ElevenLabs `/models` API endpoint. When the key lacks the
+**Models** permission, the plugin falls back to a built-in list of the models below. Common models include:
 
 | Model ID | Name | Use Case |
 |---|---|---|
-| `eleven_v3` | v3 | Most expressive TTS |
-| `eleven_multilingual_v2` | Multilingual v2 | Best quality multilingual TTS |
-| `eleven_turbo_v2_5` | Turbo v2.5 | Low-latency TTS |
-| `eleven_turbo_v2` | Turbo v2 | Low-latency TTS (English) |
-| `eleven_flash_v2_5` | Flash v2.5 | Fastest TTS |
-| `eleven_flash_v2` | Flash v2 | Fast TTS |
-| `eleven_monolingual_v1` | English v1 | Legacy English TTS |
-| `eleven_multilingual_v1` | Multilingual v1 | Legacy multilingual TTS |
+| `eleven_v4` | v4 | Most expressive multilingual TTS, 90+ languages |
+| `eleven_v4_turbo` | v4 Turbo | Low-latency v4 |
+| `eleven_v3` | v3 | Expressive TTS, 70+ languages |
+| `eleven_v3_conversational` | v3 Conversational | Conversational v3 |
+| `eleven_multilingual_v2` | Multilingual v2 | Stable multilingual TTS, 29 languages |
+| `eleven_flash_v2_5` | Flash v2.5 | Fastest and cheapest, 32 languages |
+| `eleven_flash_v2` | Flash v2 | Fast TTS (English) |
+| `eleven_turbo_v2_5` | Turbo v2.5 | Deprecated by ElevenLabs; use Flash v2.5 |
+| `eleven_turbo_v2` | Turbo v2 | Deprecated by ElevenLabs; use Flash v2 |
 | `elevenlabs-sound-generation` | Sound Generation | Sound effects from text |
 
 The sound generation model is a hardcoded entry (the `/sound-generation` endpoint does not require a model ID).
+
+### Choosing models
+
+A prompt that names a model with `usingModelPreference()` always gets that model. A prompt that
+names none, such as the WordPress AI plugin's Text to Speech experiment, gets the first model the
+provider lists. The provider lists the configured default model first, then `eleven_v4`,
+`eleven_multilingual_v2`, `eleven_v3`, `eleven_v4_turbo` and `eleven_flash_v2_5`, then the rest
+alphabetically.
+
+The default model is resolved in this order, then passed through the
+`ai_provider_for_elevenlabs_default_model_id` filter:
+
+1. `ELEVENLABS_DEFAULT_MODEL_ID` environment variable
+2. `ELEVENLABS_DEFAULT_MODEL_ID` PHP constant
+3. `ai_provider_for_elevenlabs_default_model_id` WordPress option (e.g. `wp option update ai_provider_for_elevenlabs_default_model_id eleven_flash_v2_5`)
+
+A default the account does not offer is ignored.
+
+To offer only some text-to-speech models, return their IDs from the
+`ai_provider_for_elevenlabs_allowed_models` filter. An empty list, the default, offers them all; a
+list matching none of the account's models is ignored, and the sound generation model is never
+removed:
+
+```php
+add_filter(
+    'ai_provider_for_elevenlabs_allowed_models',
+    function (): array {
+        return [ 'eleven_v4', 'eleven_flash_v2_5' ];
+    }
+);
+```
+
+Models that ElevenLabs marks as requiring alpha access are hidden, because the API lists them to
+every account without saying whether yours has access. Enable them with
+`add_filter( 'ai_provider_for_elevenlabs_include_alpha_models', '__return_true' );`.
+
+The model list is cached for a day, but a changed setting takes effect at once, since the settings
+are part of the cache key.
+
+#### Does model availability depend on the subscription?
+
+Not for text-to-speech. `GET /v1/models` returns the same catalogue to every account, and
+`GET /v1/user/subscription` reports credits and voice limits but no model entitlements. ElevenLabs
+plans differ in credits, concurrency and voice features rather than in which TTS models they can
+use. The API offers no way to test access to a model short of a billed text-to-speech request, so
+the plugin does not probe; a request the account cannot make returns the ElevenLabs error.
 
 ## Voice Settings Defaults
 

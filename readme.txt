@@ -64,6 +64,10 @@ Set the `outputSpeechVoice` option in your `ModelConfig` to the voice ID. You ca
 
 The provider resolves a default: the `ELEVENLABS_DEFAULT_VOICE_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_voice_id` option, a voice discovered from your own ElevenLabs account (preferring premade voices; requires the Voices permission on the API key), and finally the premade voice "George" (`JBFqnCBsd6RMkjVDRZzb`), which is available on every account. The result passes through the `ai_provider_for_elevenlabs_default_voice_id` filter. An explicitly configured `outputSpeechVoice` always takes precedence.
 
+= Which model is used, and can I choose? =
+
+A prompt that names a model gets that model. Otherwise the provider uses the configured default: the `ELEVENLABS_DEFAULT_MODEL_ID` environment variable or constant, or the `ai_provider_for_elevenlabs_default_model_id` option, passed through the filter of the same name. Without one it uses Eleven v4, then Multilingual v2. The `ai_provider_for_elevenlabs_allowed_models` filter limits which text-to-speech models are offered. ElevenLabs offers the same text-to-speech models on every plan, so no per-plan check is needed.
+
 = Can it narrate a whole post? =
 
 Text longer than the model's per-request character limit is split on paragraph and sentence boundaries, narrated in several requests, and returned as one audio file. Note that narration is slow (roughly 90 to 95 characters per second) and runs inside one PHP request, so very long text can exceed the PHP execution time limit. Each chunk is billed as its own API request. See the README for details and for the public per-chunk methods a background-processing plugin can build on.
@@ -97,6 +101,13 @@ The service is provided by ElevenLabs (https://elevenlabs.io/). Your use of it i
 * Privacy Policy: https://elevenlabs.io/privacy-policy
 
 == Changelog ==
+
+= n.e.x.t =
+* Support the Eleven v4 and v4 Turbo models, and Eleven v3 Conversational, including in the built-in model list used when the API key lacks the Models permission. Drop the retired English v1 and Multilingual v1 models from that list
+* Use Eleven v4 by default when a prompt names no model, then Multilingual v2. The provider previously listed models alphabetically, which made the English-only Flash v2 the default
+* Choose the default model with the `ELEVENLABS_DEFAULT_MODEL_ID` environment variable or constant, the `ai_provider_for_elevenlabs_default_model_id` option, or the filter of the same name
+* Limit the text-to-speech models offered with the `ai_provider_for_elevenlabs_allowed_models` filter
+* Hide models ElevenLabs marks as requiring alpha access, unless the `ai_provider_for_elevenlabs_include_alpha_models` filter enables them
 
 = 1.0.2 =
 * Rename the plugin to "LS AI Provider for ElevenLabs", with the permalink `ls-ai-provider-for-elevenlabs`. The WordPress.org plugin directory requires a plugin name to begin with a distinctive identifier, and "AI Provider" on its own is a generic description; "LS" is the author's initials

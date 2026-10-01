@@ -29,6 +29,7 @@ use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCo
  *     can_do_text_to_speech?: bool,
  *     can_do_voice_conversion?: bool,
  *     can_be_finetuned?: bool,
+ *     requires_alpha_access?: bool,
  *     maximum_text_length_per_request?: int|null
  * }
  * @phpstan-type ModelsResponseData list<ModelData>
@@ -75,14 +76,36 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * @var array<string, string> Model ID => display name.
      */
     private const FALLBACK_MODELS = [
-        'eleven_v3'              => 'v3',
-        'eleven_flash_v2'        => 'Flash v2',
-        'eleven_flash_v2_5'      => 'Flash v2.5',
-        'eleven_monolingual_v1'  => 'English v1',
-        'eleven_multilingual_v1' => 'Multilingual v1',
-        'eleven_multilingual_v2' => 'Multilingual v2',
-        'eleven_turbo_v2'        => 'Turbo v2',
-        'eleven_turbo_v2_5'      => 'Turbo v2.5',
+        'eleven_v4'                => 'v4',
+        'eleven_v4_turbo'          => 'v4 Turbo',
+        'eleven_v3'                => 'v3',
+        'eleven_v3_conversational' => 'v3 Conversational',
+        'eleven_flash_v2'          => 'Flash v2',
+        'eleven_flash_v2_5'        => 'Flash v2.5',
+        'eleven_multilingual_v2'   => 'Multilingual v2',
+        'eleven_turbo_v2'          => 'Turbo v2',
+        'eleven_turbo_v2_5'        => 'Turbo v2.5',
+    ];
+
+    /**
+     * Models placed first when listing, in priority order.
+     *
+     * The AI Client uses the first listed model that meets a prompt's
+     * requirements when the caller states no model preference, so this order
+     * decides the implicit default. Multilingual models lead, so a site that
+     * never picks a model does not get an English-only one. Models not listed
+     * here follow in alphabetical order.
+     *
+     * @since n.e.x.t
+     *
+     * @var list<string>
+     */
+    private const MODEL_PRIORITY = [
+        'eleven_v4',
+        'eleven_multilingual_v2',
+        'eleven_v3',
+        'eleven_v4_turbo',
+        'eleven_flash_v2_5',
     ];
 
     /**
@@ -106,12 +129,15 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
      * @var array<string, int> Model ID => maximum characters per request.
      */
     private const MODEL_TEXT_LIMITS = [
-        'eleven_v3'              => 5000,
-        'eleven_multilingual_v2' => 10000,
-        'eleven_turbo_v2'        => 30000,
-        'eleven_flash_v2'        => 30000,
-        'eleven_turbo_v2_5'      => 40000,
-        'eleven_flash_v2_5'      => 40000,
+        'eleven_v4'                => 10000,
+        'eleven_v4_turbo'          => 10000,
+        'eleven_v3'                => 5000,
+        'eleven_v3_conversational' => 5000,
+        'eleven_multilingual_v2'   => 10000,
+        'eleven_turbo_v2'          => 30000,
+        'eleven_flash_v2'          => 30000,
+        'eleven_turbo_v2_5'        => 40000,
+        'eleven_flash_v2_5'        => 40000,
     ];
 
     /**
@@ -152,11 +178,36 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
     /**
      * {@inheritDoc}
      *
+     * The model list is cached for a day, and what it holds depends on the
+     * default model, the allowed models and whether alpha models are included.
+     * Folding those settings into the key means a changed setting is picked up
+     * at once, instead of the list cached under the old settings being served
+     * until it expires.
+     *
+     * @since n.e.x.t
+     */
+    protected function getBaseCacheKey(): string
+    {
+        $settings = [
+            $this->resolveDefaultModelId(),
+            $this->resolveAllowedModelIds(),
+            $this->includeAlphaModels(),
+        ];
+
+        return parent::getBaseCacheKey() . '_' . md5((string) json_encode($settings));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
      * Extends the base implementation to add a hardcoded sound generation model
      * entry, since the ElevenLabs /models endpoint only returns TTS models.
      * Falls back to a known model list when the /models endpoint is inaccessible.
+     * The text-to-speech models are then narrowed to the allowed models, if any
+     * are configured.
      *
      * @since 0.1.0
+     * @since n.e.x.t Narrows the text-to-speech models to the allowed models.
      */
     protected function sendListModelsRequest(): array
     {
@@ -166,6 +217,17 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
             // Fall back to hardcoded models when /models is inaccessible
             // (e.g. API key lacks models_read permission).
             $modelsMap = $this->buildFallbackModelsMap();
+        }
+
+        $allowedModelIds = $this->resolveAllowedModelIds();
+        if ($allowedModelIds !== []) {
+            $allowedModelsMap = array_intersect_key($modelsMap, array_flip($allowedModelIds));
+
+            // An allow-list naming no model the account offers would leave
+            // text-to-speech with nothing to run on, so it is ignored instead.
+            if ($allowedModelsMap !== []) {
+                $modelsMap = $allowedModelsMap;
+            }
         }
 
         $soundGenOptions = [
@@ -196,14 +258,19 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
     {
         $ttsOptions = $this->getTtsOptions();
 
-        $map = [];
+        $models = [];
         foreach (self::FALLBACK_MODELS as $modelId => $modelName) {
-            $map[$modelId] = new ModelMetadata(
+            $models[] = new ModelMetadata(
                 $modelId,
                 $modelName,
                 [CapabilityEnum::textToSpeechConversion()],
                 $ttsOptions
             );
+        }
+
+        $map = [];
+        foreach ($this->sortModels($models) as $model) {
+            $map[$model->getId()] = $model;
         }
 
         return $map;
@@ -254,11 +321,20 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
 
         $ttsOptions = $this->getTtsOptions();
 
+        $includeAlphaModels = $this->includeAlphaModels();
+
         /** @var list<ModelData> $modelsData */
         $ttsModelsData = array_filter(
             $modelsData,
-            static function (array $modelData): bool {
-                return !empty($modelData['can_do_text_to_speech']);
+            static function (array $modelData) use ($includeAlphaModels): bool {
+                if (empty($modelData['can_do_text_to_speech'])) {
+                    return false;
+                }
+
+                // The API lists alpha models to every account but does not say
+                // whether this one has been granted access, so they are left out
+                // unless a site opts in.
+                return $includeAlphaModels || empty($modelData['requires_alpha_access']);
             }
         );
 
@@ -292,9 +368,180 @@ class ProviderForElevenLabsModelMetadataDirectory extends AbstractOpenAiCompatib
             )
         );
 
-        usort($models, [$this, 'modelSortCallback']);
+        return $this->sortModels($models);
+    }
+
+    /**
+     * Sorts models so that the preferred default comes first.
+     *
+     * The configured default model leads, then the models in
+     * {@see self::MODEL_PRIORITY}, then the rest by ID. The AI Client falls back
+     * to the first matching model when a prompt names no model preference, so
+     * this order is what makes the configured default take effect.
+     *
+     * @since n.e.x.t
+     *
+     * @param list<ModelMetadata> $models The models to sort.
+     * @return list<ModelMetadata> The sorted models.
+     */
+    private function sortModels(array $models): array
+    {
+        $rankedModelIds = self::MODEL_PRIORITY;
+
+        $defaultModelId = $this->resolveDefaultModelId();
+        if ($defaultModelId !== '') {
+            array_unshift($rankedModelIds, $defaultModelId);
+        }
+
+        // A default that is also in the priority list keeps its first, higher rank.
+        $ranks = [];
+        foreach ($rankedModelIds as $modelId) {
+            $ranks[$modelId] = $ranks[$modelId] ?? count($ranks);
+        }
+
+        usort(
+            $models,
+            function (ModelMetadata $a, ModelMetadata $b) use ($ranks): int {
+                $rankA = $ranks[$a->getId()] ?? PHP_INT_MAX;
+                $rankB = $ranks[$b->getId()] ?? PHP_INT_MAX;
+
+                if ($rankA !== $rankB) {
+                    return $rankA <=> $rankB;
+                }
+
+                return $this->modelSortCallback($a, $b);
+            }
+        );
 
         return $models;
+    }
+
+    /**
+     * Resolves the model to list first, making it the default for prompts that
+     * name no model preference.
+     *
+     * The default is resolved from (in order): the `ELEVENLABS_DEFAULT_MODEL_ID`
+     * environment variable, the `ELEVENLABS_DEFAULT_MODEL_ID` constant and the
+     * `ai_provider_for_elevenlabs_default_model_id` WordPress option, then passed
+     * through the `ai_provider_for_elevenlabs_default_model_id` WordPress filter.
+     * An empty result leaves {@see self::MODEL_PRIORITY} in charge, and a model
+     * the account does not offer is ignored.
+     *
+     * @since n.e.x.t
+     *
+     * @return string The default model ID, or an empty string for none.
+     */
+    protected function resolveDefaultModelId(): string
+    {
+        $modelId = '';
+
+        $envModelId = getenv('ELEVENLABS_DEFAULT_MODEL_ID');
+        if (is_string($envModelId) && trim($envModelId) !== '') {
+            $modelId = trim($envModelId);
+        }
+
+        if ($modelId === '' && defined('ELEVENLABS_DEFAULT_MODEL_ID')) {
+            $constantModelId = constant('ELEVENLABS_DEFAULT_MODEL_ID');
+            if (is_string($constantModelId) && trim($constantModelId) !== '') {
+                $modelId = trim($constantModelId);
+            }
+        }
+
+        if ($modelId === '' && function_exists('get_option')) {
+            $optionModelId = get_option('ai_provider_for_elevenlabs_default_model_id', '');
+            if (is_string($optionModelId) && trim($optionModelId) !== '') {
+                $modelId = trim($optionModelId);
+            }
+        }
+
+        if (function_exists('apply_filters')) {
+            /**
+             * Filters the model listed first, used when a prompt names no model preference.
+             *
+             * @since n.e.x.t
+             *
+             * @param string $modelId The resolved default model ID, or an empty string for none.
+             */
+            $filteredModelId = apply_filters('ai_provider_for_elevenlabs_default_model_id', $modelId);
+            if (is_string($filteredModelId)) {
+                $modelId = trim($filteredModelId);
+            }
+        }
+
+        return $modelId;
+    }
+
+    /**
+     * Resolves the text-to-speech models the site allows.
+     *
+     * Read from the `ai_provider_for_elevenlabs_allowed_models` WordPress filter.
+     * An empty list, the default, allows every model the account offers. The
+     * sound generation model is never affected.
+     *
+     * @since n.e.x.t
+     *
+     * @return list<string> The allowed model IDs, or an empty list for no restriction.
+     */
+    protected function resolveAllowedModelIds(): array
+    {
+        if (!function_exists('apply_filters')) {
+            return [];
+        }
+
+        /**
+         * Filters the text-to-speech models offered to the AI Client.
+         *
+         * Return a list of model IDs to offer only those, or an empty list to
+         * offer every model the account has. A list matching none of the
+         * account's models is ignored.
+         *
+         * @since n.e.x.t
+         *
+         * @param list<string> $modelIds The allowed model IDs. Empty for no restriction.
+         */
+        $modelIds = apply_filters('ai_provider_for_elevenlabs_allowed_models', []);
+        if (!is_array($modelIds)) {
+            return [];
+        }
+
+        $modelIds = array_filter(
+            array_map(
+                static fn ($modelId): string => is_string($modelId) ? trim($modelId) : '',
+                $modelIds
+            ),
+            static fn (string $modelId): bool => $modelId !== ''
+        );
+
+        return array_values(array_unique($modelIds));
+    }
+
+    /**
+     * Determines whether models marked as requiring alpha access are listed.
+     *
+     * Read from the `ai_provider_for_elevenlabs_include_alpha_models` WordPress
+     * filter, off by default.
+     *
+     * @since n.e.x.t
+     *
+     * @return bool Whether alpha models are listed.
+     */
+    protected function includeAlphaModels(): bool
+    {
+        if (!function_exists('apply_filters')) {
+            return false;
+        }
+
+        /**
+         * Filters whether models that require alpha access are listed.
+         *
+         * ElevenLabs lists alpha models to every account without saying whether
+         * the account has access, so enable this only if yours does.
+         *
+         * @since n.e.x.t
+         *
+         * @param bool $include Whether to list alpha models. Default false.
+         */
+        return (bool) apply_filters('ai_provider_for_elevenlabs_include_alpha_models', false);
     }
 
     /**
