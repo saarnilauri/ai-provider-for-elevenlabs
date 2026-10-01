@@ -80,9 +80,9 @@ So:
   an option.
 - The minimum PHP version is **7.4**. `composer lint` runs PHPCompatibility against it,
   so features such as enums, `readonly`, `match` and named arguments fail the lint.
-  The lint deliberately lets `array_is_list()`, `str_contains()`, `str_starts_with()`
-  and `str_ends_with()` through, because WordPress polyfills them. The Composer package
-  can't rely on those polyfills, though, so avoid them in `src/`.
+  `array_is_list()`, `str_contains()`, `str_starts_with()` and `str_ends_with()` are
+  fine: the PHP AI Client SDK polyfills them, and it is always loaded alongside the
+  provider, with or without WordPress.
 
 ## Public API stability
 
